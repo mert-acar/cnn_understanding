@@ -26,6 +26,7 @@ if __name__ == "__main__":
   os.mkdir(config["output_path"])
 
   device = torch.device("cuda" if torch.cuda.is_available() else "mps")
+  print(f"[INFO] Running on {device}")
 
   dataloaders = {
     "train": create_dataloader(split="train", **config),
