@@ -37,8 +37,7 @@ if __name__ == "__main__":
   optimizer = torch.optim.Adam(
     model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
   )
-  criterion = torch.nn.CrossEntropyLoss()
-  # criterion = torch.nn.NLLLoss()
+  criterion = torch.nn.NLLLoss()
   scheduler = StepLR(
     optimizer, step_size=config["scheduler_step_size"], gamma=config["scheduler_gamma"]
   )
