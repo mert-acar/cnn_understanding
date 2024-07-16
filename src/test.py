@@ -5,12 +5,13 @@ from yaml import full_load
 import torch.nn.functional as F
 from utils import create_dataloader, create_model
 
+
 def test(experiment_path, config_path="config.yaml"):
   with open(config_path, "r") as f:
     config = full_load(f)
 
   device = torch.device("cuda" if torch.cuda.is_available() else "mps")
-  
+
   dataloader = create_dataloader(split="test", **config)
 
   model = create_model(**config).to(device)
