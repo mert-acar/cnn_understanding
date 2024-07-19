@@ -13,17 +13,17 @@ if __name__ == "__main__":
   with open("config.yaml", "r") as f:
     config = full_load(f)
 
-  # # Create the checkpoint output path
-  # if os.path.exists(config["output_path"]):
-  #   c = input(
-  #     f"Output path {config['output_path']} is not empty! Do you want to delete the folder [y / n]: "
-  #   )
-  #   if "y" == c.lower():
-  #     rmtree(config["output_path"], ignore_errors=True)
-  #   else:
-  #     print("Exit!")
-  #     raise SystemExit
-  # os.mkdir(config["output_path"])
+  # Create the checkpoint output path
+  if os.path.exists(config["output_path"]):
+    c = input(
+      f"Output path {config['output_path']} is not empty! Do you want to delete the folder [y / n]: "
+    )
+    if "y" == c.lower():
+      rmtree(config["output_path"], ignore_errors=True)
+    else:
+      print("Exit!")
+      raise SystemExit
+  os.mkdir(config["output_path"])
 
   device = torch.device("cuda" if torch.cuda.is_available() else "mps")
   print(f"[INFO] Running on {device}")
