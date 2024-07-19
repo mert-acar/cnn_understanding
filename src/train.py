@@ -4,12 +4,23 @@ from time import time
 from tqdm import tqdm
 from shutil import rmtree
 from yaml import full_load
+from scipy.io import savemat
 import torch.nn.functional as F
+from collections import defaultdict
 from torch.optim.lr_scheduler import StepLR
 
 from utils import create_dataloader, create_model
 
+
+def hook_gen(key):
+  def hook_fn(model, input, output):
+    activations[key].append(output.detach())
+  return hook_fn
+
+
 if __name__ == "__main__":
+  activations = defaultdict(list)
+  hook_targets = ["conv1", "relu", "fc", "layer4.0.conv2", "layer4.0.relu"]
   with open("config.yaml", "r") as f:
     config = full_load(f)
 
@@ -34,6 +45,15 @@ if __name__ == "__main__":
   }
 
   model = create_model(**config).to(device)
+  layer_list = dict([*model.named_modules()])
+  for target in hook_targets:
+    if target not in layer_list:
+      print(f"[INFO] Layer {target} does not exits, skipping...")
+      continue
+    target_layer = layer_list[target]
+    target_layer.register_forward_hook(hook_gen(target))
+    print(f"[INFO] Hooking: {target_layer}")
+
   optimizer = torch.optim.Adam(
     model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
   )
@@ -83,6 +103,12 @@ if __name__ == "__main__":
           ckpt_path = os.path.join(config["output_path"], "checkpoint.pt")
           print(f"+ Saving the model to {ckpt_path}...")
           torch.save(model.state_dict(), ckpt_path)
+
+    
+    for key in activations:
+      activations[key] = torch.cat(activations[key], 0).cpu().numpy()
+    savemat(os.path.join(config["output_path"], f"act_epoch_{epoch + 1}.mat"), activations)
+    activations = defaultdict(list)
 
     # If no validation improvement has been recorded for "early_stop" number of epochs
     # stop the training.
