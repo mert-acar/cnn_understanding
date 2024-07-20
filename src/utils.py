@@ -1,3 +1,4 @@
+import numpy as np
 import torch.nn as nn
 from torchvision import models
 from torchvision.datasets import MNIST
@@ -20,3 +21,11 @@ def create_model(model_name, model_weights="DEFAULT", **kwargs):
   model.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
   model.fc = nn.Linear(512, 10, bias=True)
   return model
+
+
+def average_distance(data):
+  n = data.shape[0]
+  distances = np.linalg.norm(data[:, np.newaxis] - data, axis=2)
+  total_distance = np.sum(np.triu(distances, k=1))
+  num_pairs = (n * (n - 1)) // 2
+  return total_distance / num_pairs

@@ -16,7 +16,7 @@ def cluster(data, labels):
 
   sscore = silhouette_score(data, clusters)
   vmeasure = v_measure_score(labels, clusters)
-  print(f"Sillhouette Score: {sscore:.3f} [-1.0 - 1.0]")
+  print(f"Silhouette Score: {sscore:.3f} [-1.0 - 1.0]")
   print(f"V-measure Score: {vmeasure:.3f} [ 0.0 - 1.0]")
   return clusters, (sscore, vmeasure)
 

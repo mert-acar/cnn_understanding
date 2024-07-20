@@ -14,7 +14,8 @@ from utils import create_dataloader, create_model
 
 def hook_gen(key):
   def hook_fn(model, input, output):
-    activations[key].append(output.detach())
+    if not model.training:
+      activations[key].append(output.detach())
   return hook_fn
 
 
