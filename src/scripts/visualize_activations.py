@@ -5,39 +5,54 @@ from scipy.io import loadmat
 import matplotlib.pyplot as plt
 
 
-def visualize_activations(exp_file, variable_name):
+def visualize_activations(exp_file, variable_name, lbl=0):
   inp_path = Path(exp_file)
   activations = loadmat(inp_path, variable_names=variable_name)[variable_name]
   labels = loadmat("../../data/labels.mat")["labels"][0]
+  _, axs = plt.subplots(8, 8, tight_layout=True)
+  act = activations[labels == lbl][0]
+  print(f"[INFO] Plotting a random activation for the label {lbl}")
+  for i, ax in enumerate(axs.ravel()):
+    ax.imshow(act[i], cmap='Reds')
+    ax.axis(False)
+  plt.suptitle(f"Class {lbl} Avg Activation")
+  plt.show()
 
-  out_path = Path(f"../../figures/{inp_path.stem}_{variable_name.replace('.', '_')}")
-  out_path.mkdir(parents=True, exist_ok=True)
 
-  k = np.random.randint(500)
-  for lbl in tqdm(set(labels), desc=f"Single activation #{k}"):
-    fig, axs = plt.subplots(8, 8, tight_layout=True)
-    act = activations[labels == lbl][k]
-    for j, ax in enumerate(axs.ravel()):
-      ax.imshow(act[j], cmap='Reds')
-      ax.axis(False)
-    plt.suptitle(f"Class {lbl} Activation {k}")
-    plt.savefig(out_path / f"cls_{lbl}_act_{j}_{k}.png", bbox_inches="tight")
-    plt.clf()
-    plt.close(fig)
+def vis3d(exp_file, variable_name, lbl=0):
+  inp_path = Path(exp_file)
+  activations = loadmat(inp_path, variable_names=variable_name)[variable_name]
+  labels = loadmat("../../data/labels.mat")["labels"][0]
+  print(f"[INFO] Plotting a random activation for the label {lbl}")
+  activations = activations[labels == lbl][0]
 
-  for lbl in tqdm(set(labels), desc="Avg Activations"):
-    fig, axs = plt.subplots(8, 8, tight_layout=True)
-    act = activations[labels == lbl].mean(0)
-    for i, ax in enumerate(axs.ravel()):
-      ax.imshow(act[i], cmap='Reds')
-      ax.axis(False)
-    plt.suptitle(f"Class {lbl} Avg Activation")
-    plt.savefig(out_path / f"cls_{lbl}_act_{i}_avg.png", bbox_inches="tight")
-    plt.clf()
-    plt.close(fig)
-  print("Figures are saved to", str(out_path))
+  fig = plt.figure()
+  ax = fig.add_subplot(111, projection='3d')
+
+  x, y, z = np.indices(activations.shape)
+
+  x = x.flatten()
+  y = y.flatten()
+  z = z.flatten()
+  values = activations.flatten()
+
+  scatter = ax.scatter(x[values > 0], z[values > 0], y[values > 0], c=values[values > 0], cmap='viridis')
+
+  color_bar = plt.colorbar(scatter, ax=ax)
+  color_bar.set_label('Intensity')
+  ax.set_xlabel('Channels')
+  ax.set_ylabel('H')
+  ax.set_zlabel('W')
+  plt.show()
+
+
+def main(mode, exp_file, variable_name, lbl):
+  if mode == '2d':
+    visualize_activations(exp_file, variable_name, int(lbl))
+  else:
+    vis3d(exp_file, variable_name, int(lbl))
 
 
 if __name__ == "__main__":
   from fire import Fire
-  Fire(visualize_activations)
+  Fire(main)
