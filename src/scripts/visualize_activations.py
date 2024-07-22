@@ -15,7 +15,7 @@ def vis2d(exp_file, variable_name, lbl=0):
   _, axs = plt.subplots(8, 8, tight_layout=True)
   print(f"[INFO] Plotting a random activation for the label {lbl}")
   for i, ax in enumerate(axs.ravel()):
-    ax.imshow(act[i], cmap='Reds')
+    ax.imshow(act[i], cmap='gray')
     ax.axis(False)
   plt.suptitle(f"Class {lbl} Avg Activation")
   plt.show()

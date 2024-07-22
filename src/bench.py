@@ -6,7 +6,7 @@ from scipy.io import loadmat
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-  exp_path = "../logs/resnet18_run1"
+  exp_path = "../logs/resnet18_run2"
   var_name = "conv1"
   threshold = 0.95
   filenames = glob(os.path.join(exp_path, "*.mat"))
@@ -14,12 +14,13 @@ if __name__ == "__main__":
   print(f"[INFO] Processing file: {os.path.basename(fname)}")
   data = loadmat(fname)
   activations = data[var_name]
-  labels = data["labels"][0]
-  non_zero_idx = [np.abs(activations[labels == 0]).mean(0)[j].sum() > 0 for j in range(activations.shape[1])]
+  labels = np.squeeze(data["labels"])
+  non_zero_idx = [
+    np.abs(activations[labels == 0]).mean(0)[j].sum() > 0 for j in range(activations.shape[1])
+  ]
   activations = activations[:, non_zero_idx]
   activations = activations.reshape(activations.shape[0], -1)
   print(f"[INFO] Flat activations shape: {activations.shape}")
-  raise SystemExit
 
   # Center the data
   mean = np.mean(activations, axis=0)
