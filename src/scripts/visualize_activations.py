@@ -36,7 +36,9 @@ def vis3d(exp_file, variable_name, lbl=0):
   z = z.flatten()
   values = activations.flatten()
 
-  scatter = ax.scatter(x[values > 0], z[values > 0], y[values > 0], c=values[values > 0], cmap='viridis')
+  scatter = ax.scatter(
+    x[values > 0], z[values > 0], y[values > 0], c=values[values > 0], cmap='viridis'
+  )
 
   color_bar = plt.colorbar(scatter, ax=ax)
   color_bar.set_label('Intensity')
