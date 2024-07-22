@@ -26,7 +26,7 @@ def test(experiment_path, config_path="config.yaml"):
       data, target = data.to(device), target.to(device)
       output = model(data)
       pred = F.log_softmax(output, dim=1)
-      acc = pred.argmax(1).eq(target).sum().item() / config["batch_size"]
+      acc = pred.argmax(1).eq(target).sum().item() / data.shape[0]
       running_accuracy += acc
   running_accuracy = running_accuracy / len(dataloader)
   print(f"Accuracy: {running_accuracy * 100:.3f}%")

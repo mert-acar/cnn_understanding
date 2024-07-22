@@ -14,14 +14,26 @@ from utils import create_dataloader, create_model
 
 def hook_gen(key):
   def hook_fn(model, input, output):
-    if not model.training:
-      activations[key].append(output.detach())
+    if model.training:
+      activations[key].append(output.detach().cpu())
+
   return hook_fn
+
+
+class L1Regularization(torch.nn.Module):
+  def __init__(self, model, lambda_l1):
+    super(L1Regularization, self).__init__()
+    self.model = model
+    self.lambda_l1 = lambda_l1
+
+  def forward(self):
+    l1_norm = sum(p.abs().sum() for p in self.model.parameters())
+    return self.lambda_l1 * l1_norm
 
 
 if __name__ == "__main__":
   activations = defaultdict(list)
-  hook_targets = ["conv1", "relu", "fc", "layer4.0.conv2", "layer4.0.relu"]
+  hook_targets = ["conv1"]
   with open("config.yaml", "r") as f:
     config = full_load(f)
 
@@ -55,10 +67,13 @@ if __name__ == "__main__":
     target_layer.register_forward_hook(hook_gen(target))
     print(f"[INFO] Hooking: {target_layer}")
 
+  l1_lambda = 0.0001  # Regularization strength
+  l1_regularizer = L1Regularization(model, l1_lambda)
+
   optimizer = torch.optim.Adam(
     model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
   )
-  criterion = torch.nn.NLLLoss()
+  criterion = torch.nn.CrossEntropyLoss()
   scheduler = StepLR(
     optimizer, step_size=config["scheduler_step_size"], gamma=config["scheduler_gamma"]
   )
@@ -66,6 +81,7 @@ if __name__ == "__main__":
   tick = time()
   best_epoch = -1
   best_error = 999999
+  labels = []
   for epoch in range(config["num_epochs"]):
     print("-" * 20)
     print(f"Epoch {epoch + 1} / {config['num_epochs']}")
@@ -82,9 +98,10 @@ if __name__ == "__main__":
           data, target = data.to(device), target.to(device)
           optimizer.zero_grad()
           output = model(data)
+          loss = criterion(output, target) + l1_regularizer()
+
           pred = F.log_softmax(output, dim=1)
-          loss = criterion(pred, target)
-          acc = pred.argmax(1).eq(target).sum().item() / config["batch_size"]
+          acc = pred.argmax(1).eq(target).sum().item() / data.shape[0]
 
           running_error += loss.item()
           running_accuracy += acc
@@ -92,6 +109,7 @@ if __name__ == "__main__":
           if phase == "train":
             loss.backward()
             optimizer.step()
+            labels.extend(target.tolist())
 
       running_error = running_error / len(dataloaders[phase])
       running_accuracy = running_accuracy / len(dataloaders[phase])
@@ -105,9 +123,10 @@ if __name__ == "__main__":
           print(f"+ Saving the model to {ckpt_path}...")
           torch.save(model.state_dict(), ckpt_path)
 
-    
     for key in activations:
-      activations[key] = torch.cat(activations[key], 0).cpu().numpy()
+      activations[key] = torch.cat(activations[key], 0).numpy()
+    activations["labels"] = labels
+    labels = []
     savemat(os.path.join(config["output_path"], f"act_epoch_{epoch + 1}.mat"), activations)
     activations = defaultdict(list)
 

@@ -1,30 +1,35 @@
+import os
 import numpy as np
+from glob import glob
+from tqdm import tqdm
 from scipy.io import loadmat
 import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
 
 if __name__ == "__main__":
-  data_path = "../data/act_resnet18_run1.mat"
-  activations = loadmat(data_path, variable_names=["conv1"])["conv1"]
-  labels = loadmat("/Users/smol/Desktop/phd/uiuc/cnn_understanding/data/labels.mat")["labels"][0]
-  non_zero_idx = [
-    np.abs(activations[labels == 0]).mean(0)[j].sum() > 0 for j in range(activations.shape[1])
-  ]
+  exp_path = "../logs/resnet18_run1"
+  var_name = "conv1"
+  threshold = 0.95
+  filenames = glob(os.path.join(exp_path, "*.mat"))
+  fname = filenames[0]
+  print(f"[INFO] Processing file: {os.path.basename(fname)}")
+  data = loadmat(fname)
+  activations = data[var_name]
+  labels = data["labels"][0]
+  non_zero_idx = [np.abs(activations[labels == 0]).mean(0)[j].sum() > 0 for j in range(activations.shape[1])]
   activations = activations[:, non_zero_idx]
   activations = activations.reshape(activations.shape[0], -1)
+  print(f"[INFO] Flat activations shape: {activations.shape}")
+  raise SystemExit
 
-  scaler = StandardScaler()
-  scaled_data = scaler.fit_transform(activations)
+  # Center the data
+  mean = np.mean(activations, axis=0)
+  u, s, _ = np.linalg.svd(activations - mean, full_matrices=False)
+  s2 = s**2
 
-  # Initialize PCA with enough components to cover all variance
-  pca = PCA()
-  pca.fit(scaled_data)
+  # Rank becomes: r for 95% of all energy [75]
+  energies = np.cumsum(s2) / np.sum(s2)
+  k = np.argmax(energies > threshold) + 1
+  print(f"[INFO] Rank [{k} / {len(s)}] explain {energies[k-1] * 100:.2f}% of the total energy")
 
-  # Determine the number of components needed to explain the threshold variance
-  cumulative_explained_variance = np.cumsum(pca.explained_variance_ratio_)
-  plt.plot(cumulative_explained_variance)
-  plt.xlabel("Principal Components")
-  plt.ylabel("Total Variance")
-  plt.grid()
-  plt.show()
+  recon = u[:, :k] @ np.diag(s[:k])
+  print(f"[INFO] Recon shape: {recon.shape}")

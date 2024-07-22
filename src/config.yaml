@@ -16,4 +16,4 @@ scheduler_step_size: 1
 
 early_stop: 6
 
-output_path: ../logs/resnet18_run3
+output_path: ../logs/resnet18_run2
