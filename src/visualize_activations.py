@@ -55,11 +55,11 @@ def vis3d(exp_file, variable_name, lbl=0, threshold=1):
   plt.show()
 
 
-def main(mode, exp_file, variable_name, lbl):
+def main(mode, exp_file, variable_name, lbl, threshold=1):
   if mode == '2d':
     vis2d(exp_file, variable_name, int(lbl))
   else:
-    vis3d(exp_file, variable_name, int(lbl))
+    vis3d(exp_file, variable_name, int(lbl), threshold)
 
 
 if __name__ == "__main__":

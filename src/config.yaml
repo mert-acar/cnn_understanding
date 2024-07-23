@@ -10,10 +10,10 @@ batch_size: 32
 num_workers: 4
 num_epochs: 50
 learning_rate: 0.1
-weight_decay: 0.001
+weight_decay: 0.01
 scheduler_gamma: 0.7
 scheduler_step_size: 1
 
 early_stop: 6
 
-output_path: ../logs/resnet18_run2
+output_path: ../logs/resnet18_run4
