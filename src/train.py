@@ -1,5 +1,6 @@
 import os
 import torch
+import torch.nn as nn
 from time import time
 from tqdm import tqdm
 from shutil import rmtree
@@ -18,6 +19,16 @@ def hook_gen(key):
       activations[key].append(output.detach().cpu())
 
   return hook_fn
+
+
+def group_lasso_penalty(model):
+  penalty = 0
+  for module in model.modules():
+    if isinstance(module, nn.Conv2d):
+      # Apply penalty only on convolutional layers
+      weights = module.weight
+      penalty += torch.sum(torch.sqrt(torch.sum(weights**2, dim=(1, 2, 3))))
+  return penalty
 
 
 if __name__ == "__main__":
@@ -64,6 +75,9 @@ if __name__ == "__main__":
     optimizer, step_size=config["scheduler_step_size"], gamma=config["scheduler_gamma"]
   )
 
+  # Add group lasso coefficient to config or set a default value
+  group_lasso_coef = config.get("group_lasso_coef", 0.01)
+
   tick = time()
   best_epoch = -1
   best_error = 999999
@@ -85,6 +99,11 @@ if __name__ == "__main__":
           optimizer.zero_grad()
           output = model(data)
           loss = criterion(output, target)
+
+          # Add group lasso penalty only during training
+          if phase == "train":
+            group_lasso = group_lasso_penalty(model)
+            loss += group_lasso_coef * group_lasso
 
           pred = F.log_softmax(output, dim=1)
           acc = pred.argmax(1).eq(target).sum().item() / data.shape[0]
@@ -127,3 +146,4 @@ if __name__ == "__main__":
   m, s = divmod(total_time, 60)
   h, m = divmod(m, 60)
   print(f"Training took {int(h):d} hours {int(m):d} minutes {s:.2f} seconds.")
+

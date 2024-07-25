@@ -1,4 +1,3 @@
-import numpy as np
 import matplotlib as mpl
 from scipy.io import loadmat
 import matplotlib.pyplot as plt
@@ -6,7 +5,7 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import HDBSCAN
 from sklearn.model_selection import GridSearchCV
 from sklearn.base import BaseEstimator, ClusterMixin
-from sklearn.metrics import silhouette_score, v_measure_score, make_scorer
+from sklearn.metrics import silhouette_score, v_measure_score
 
 
 class HDBSCANClusterer(BaseEstimator, ClusterMixin):
@@ -30,6 +29,13 @@ class HDBSCANClusterer(BaseEstimator, ClusterMixin):
 
   def fit_predict(self, X, y=None):
     return self.hdbscan.fit_predict(X)
+
+
+def silhouette_scorer(estimator, X):
+  labels = estimator.fit_predict(X)
+  if len(set(labels)) == 1 or len(set(labels)) == len(labels):
+    return -1
+  return silhouette_score(X, labels)
 
 
 def main(data_path, variable_name="conv1"):
@@ -71,23 +77,8 @@ def main(data_path, variable_name="conv1"):
   plt.show()
 
 
-def silhouette_scorer(estimator, X):
-  labels = estimator.fit_predict(X)
-  # Check if all labels are the same or if there are more than one label before calculating silhouette_score
-  if len(set(labels)) == 1 or len(set(labels)) == len(labels):
-    return -1  # A bad score if all labels are the same or each point is its own cluster
-  return silhouette_score(X, labels)
-
-
-if __name__ == "__main__":
-  # from fire import Fire
-  # Fire(main)
-
-  from dimensionality_reduction import low_rank_approximation
-
-  # Setting up the grid search
-  data_path = "../logs/resnet18_run4/act_epoch_37.mat"
-  variable_name = "conv1"
+def grid_search(data_path, variable_name, cv=3):
+  from dim_reduction import low_rank_approximation
   data = loadmat(data_path, variable_names=[variable_name, "labels"])
   activations = data[variable_name]
   activations = activations.reshape(activations.shape[0], -1)
@@ -98,8 +89,17 @@ if __name__ == "__main__":
     'alpha': [0.1, 0.5, 1.0, 1.5, 3],
     'cluster_selection_epsilon': [0.0, 0.1, 0.2, 0.9]
   }
-  grid_search = GridSearchCV(HDBSCANClusterer(), param_grid, scoring=silhouette_scorer, cv=3)
+  grid_search = GridSearchCV(HDBSCANClusterer(), param_grid, scoring=silhouette_scorer, cv=cv)
   grid_search.fit(X)
 
   print("Best parameters:", grid_search.best_params_)
   print("Best silhouette score:", grid_search.best_score_)
+
+
+if __name__ == "__main__":
+  from fire import Fire
+  Fire(main)
+
+  # data_path = "../logs/resnet18_run4/act_epoch_37.mat"
+  # variable_name = "conv1"
+  # grid_search(data_path, variable_name)

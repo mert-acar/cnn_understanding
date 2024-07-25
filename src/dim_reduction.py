@@ -51,7 +51,7 @@ def pca_reduction(activations, threshold=0.95, verbose=False):
   return pca_result, project
 
 
-def dim_reduction(
+def main(
   method, act_path, variable_name, act_threshold=0.1, energy_threshold=0.95, verbose=True
 ):
   data_path = Path(act_path)
@@ -87,4 +87,4 @@ def dim_reduction(
 
 if __name__ == "__main__":
   from fire import Fire
-  Fire(dim_reduction)
+  Fire(main)
