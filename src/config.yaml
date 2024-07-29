@@ -8,7 +8,7 @@ model_weights: DEFAULT
 # Training
 batch_size: 32
 num_workers: 4
-num_epochs: 50
+num_epochs: 100
 learning_rate: 0.1
 weight_decay: 0.01
 group_lasso_coef: 0.001 # or null
@@ -17,4 +17,4 @@ scheduler_step_size: 1
 
 early_stop: 6
 
-output_path: ../logs/resnet18_run4
+output_path: ../logs/resnet18_run1

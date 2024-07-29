@@ -51,9 +51,7 @@ def pca_reduction(activations, threshold=0.95, verbose=False):
   return pca_result, project
 
 
-def main(
-  method, act_path, variable_name, act_threshold=0.1, energy_threshold=0.95, verbose=True
-):
+def main(method, act_path, variable_name, act_threshold=0.1, energy_threshold=0.95, verbose=True):
   data_path = Path(act_path)
   data = loadmat(data_path, variable_names=[variable_name, "labels"])
   activations = data[variable_name]
@@ -78,7 +76,9 @@ def main(
   else:
     print(f"[ERROR] {method} method is not implemented!")
 
-  out_path = Path(f"../data/{method}_recon_{data_path.stem.split('_')[-1]}_{variable_name}.mat")
+  out_path = Path(
+    f"{data_path.parent}/{method}_recon_epoch_{data_path.stem.split('_')[-1]}_{variable_name}.mat"
+  )
   savemat(out_path, {variable_name: recon, "labels": labels})
   if verbose:
     print(f"[INFO] Recon shape: {recon.shape}")
