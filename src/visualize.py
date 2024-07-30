@@ -15,7 +15,7 @@ def vis2d(activations):
 
 
 def vis3d(activations):
-  fig = plt.figure(figsize=(11,10))
+  fig = plt.figure(figsize=(11, 10))
   ax = fig.add_subplot(111, projection='3d')
   x, y, z = np.indices(activations.shape)
   x = x.flatten()
@@ -23,11 +23,7 @@ def vis3d(activations):
   z = z.flatten()
   values = np.abs(activations.flatten())
   scatter = ax.scatter(
-    x[values > 0],
-    y[values > 0],
-    z[values > 0],
-    c=values[values > 0],
-    cmap='viridis'
+    x[values > 0], y[values > 0], z[values > 0], c=values[values > 0], cmap='viridis'
   )
   color_bar = plt.colorbar(scatter, ax=ax)
   color_bar.set_label('Intensity')
