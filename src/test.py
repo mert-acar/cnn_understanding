@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from utils import create_dataloader, create_model
 
 
-def test(experiment_path):
+def main(experiment_path, checkpoint_num=1):
   with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
     config = full_load(f)
 
@@ -15,11 +15,19 @@ def test(experiment_path):
   dataloader = create_dataloader(split="test", **config)
 
   model = create_model(**config).to(device)
-  weights = torch.load(os.path.join(experiment_path, "checkpoint.pt"), map_location=device)
+  weights = torch.load(
+    os.path.join(experiment_path, f"checkpoint_{checkpoint_num}.pt"), map_location=device
+  )
   model.load_state_dict(weights)
   model.eval()
+  criterion = torch.nn.CrossEntropyLoss()
+  results = test(model, dataloader, criterion, device)
+  print(f"Accuracy: {results['accuracy'] * 100:.3f}% | Loss: {results['loss']:.3f}")
 
+
+def test(model, dataloader, criterion, device):
   running_accuracy = 0
+  running_error = 0
   pbar = tqdm(dataloader, total=len(dataloader), ncols=94)
   with torch.inference_mode():
     for data, target in pbar:
@@ -28,10 +36,14 @@ def test(experiment_path):
       pred = F.log_softmax(output, dim=1)
       acc = pred.argmax(1).eq(target).sum().item() / data.shape[0]
       running_accuracy += acc
+      loss = criterion(output, target)
+      running_error += loss.item()
 
   running_accuracy = running_accuracy / len(dataloader)
-  print(f"Accuracy: {running_accuracy * 100:.3f}%")
+  running_error = running_error / len(dataloader)
+  return {"loss": running_error, "accuracy": running_accuracy}
+
 
 if __name__ == "__main__":
   from fire import Fire
-  Fire(test)
+  Fire(main)

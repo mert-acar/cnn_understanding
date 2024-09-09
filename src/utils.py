@@ -3,6 +3,7 @@ import numpy as np
 from torchvision import models
 from torchvision.datasets import MNIST
 from torch.utils.data import DataLoader
+from sklearn.preprocessing import StandardScaler
 from torchvision.transforms import Compose, ToTensor, Normalize
 
 
@@ -18,7 +19,9 @@ def create_dataloader(data_root="../data/", batch_size=1, num_workers=4, split="
 
 def create_model(model_name, model_weights="DEFAULT", **kwargs):
   model = getattr(models, model_name)(weights=model_weights)
-  model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+  model.conv1 = torch.nn.Conv2d(
+    1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
+  )
   model.fc = torch.nn.Linear(512, 10, bias=True)
   return model
 
@@ -29,3 +32,11 @@ def average_distance(data):
   total_distance = np.sum(np.triu(distances, k=1))
   num_pairs = (n * (n - 1)) // 2
   return total_distance / num_pairs
+
+
+def analyze_data(data):
+  scaler = StandardScaler()
+  scaled_data = scaler.fit_transform(data)
+  avg_mean_distance = np.mean(np.mean(np.abs(scaled_data), axis=0))
+  avg_max_distance = np.mean(np.max(np.abs(scaled_data), axis=0))
+  return {"avg_mean_distance": avg_mean_distance, "avg_max_distance": avg_max_distance}

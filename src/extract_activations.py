@@ -16,7 +16,21 @@ def hook_gen(key):
   return hook_fn
 
 
-def extract(experiment_path, checkpoint_num=3, *hook_targets):
+def extract(model, dataloader, device):
+  pbar = tqdm(dataloader, total=len(dataloader), ncols=94)
+  labels = []
+  with torch.inference_mode():
+    for data, target in pbar:
+      data, target = data.to(device), target.to(device)
+      _ = model(data)
+      labels.extend(target.tolist())
+  for key in activations:
+    activations[key] = torch.cat(activations[key], 0).numpy()
+  activations["labels"] = labels
+  return activations
+
+
+def main(experiment_path, checkpoint_num=3, *hook_targets):
   assert len(hook_targets) > 0, "Provide at least one layer name to hook into"
 
   with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
@@ -43,22 +57,16 @@ def extract(experiment_path, checkpoint_num=3, *hook_targets):
     target_layer.register_forward_hook(hook_gen(target))
     print(f"[INFO] Hooking: {target_layer}")
 
-  pbar = tqdm(dataloader, total=len(dataloader), ncols=94)
-  labels = []
-  with torch.inference_mode():
-    for data, target in pbar:
-      data, target = data.to(device), target.to(device)
-      _ = model(data)
-      labels.extend(target.tolist())
-
-  out_path = os.path.join(config["output_path"], f"act_epoch_{checkpoint_num}.mat")
-  for key in activations:
-    activations[key] = torch.cat(activations[key], 0).numpy()
-  activations["labels"] = labels
-  savemat(out_path, activations)
-  print(f"Activations are saved to: {out_path}")
+  act = extract(model, dataloader, device)
+  for key in act:
+    if key == "labels":
+      continue
+    out_path = os.path.join(config["output_path"], key)
+    if not os.path.exists(out_path):
+      os.mkdir(out_path)
+    savemat(os.path.join(out_path, f"act_epoch_{checkpoint_num}.mat"), {key: act[key], "labels": act["labels"]})
 
 
 if __name__ == "__main__":
   from fire import Fire
-  Fire(extract)
+  Fire(main)

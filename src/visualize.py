@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib as mpl
 from pathlib import Path
 from scipy.io import loadmat
 import matplotlib.pyplot as plt
@@ -30,6 +31,27 @@ def vis3d(activations):
   ax.set_xlabel('Channels')
   ax.set_ylabel('H')
   ax.set_zlabel('W')
+  plt.show()
+
+
+def vis(embedded, clusters, labels):
+  _, axs = plt.subplots(1, 2, figsize=(15, 7), tight_layout=True)
+  colormap = mpl.colormaps['tab20']
+  for j, lbls in enumerate([clusters, labels]):
+    ax = axs[j]
+    for i, c in enumerate(reversed(list(set(lbls)))):
+      idx = lbls == c
+      if c == -1:
+        lbl = "Noisy Samples"
+        color = 'gray'
+      else:
+        lbl = f"Cluster {c}"
+        color = colormap(i)
+      ax.scatter(embedded[idx, 0], embedded[idx, 1], color=color, label=lbl, alpha=0.3)
+    ax.grid(True)
+    ax.set_title(f"{'predicted' if j == 0 else 'label'} clusters")
+    ax.legend()
+  plt.suptitle(f"Activations")
   plt.show()
 
 
