@@ -3,21 +3,50 @@ from tqdm import tqdm
 import torch.nn.functional as F
 
 
+def transform(facet_planes, plane_centers, points):
+  num_points = points.shape[0]
+  num_facets = facet_planes.shape[0]
+
+  chosen_facets = torch.zeros(num_points, dtype=torch.int)
+  all_residues = torch.zeros(num_points, num_facets, dtype=torch.float)
+
+  for num_facet in range(num_facets):
+    current_facet = facet_planes[num_facet, :, :]
+    current_center = plane_centers[num_facet, :]
+    current_points = points - current_center
+    all_residues[:, num_facet] = get_residue(current_points, current_facet)
+
+  _, chosen_facets = torch.min(all_residues, dim=1)
+
+  alphas = torch.matmul(
+    (points - plane_centers[chosen_facets]).unsqueeze(1),
+    facet_planes[chosen_facets].transpose(1, 2)
+  )
+  transformed_points = plane_centers[chosen_facets] + torch.bmm(
+    alphas, facet_planes[chosen_facets]
+  ).squeeze()
+  return transformed_points, chosen_facets
+
+
 def get_residue(points, plane):
   points_projected = torch.matmul(points, plane.T)
   residue = torch.linalg.vector_norm(points - torch.matmul(points_projected, plane), dim=1)
   return residue
 
 
-def get_facet_planes(embeddings, facet_dim=3, residue_threshold=0.01):
+def get_facet_proj(embeddings, facet_dim=3, residue_threshold=0.01):
+  if not isinstance(embeddings, torch.Tensor):
+    embeddings = torch.from_numpy(embeddings)
+  embeddings = F.normalize(embeddings)
   num_data = embeddings.shape[0]
-  facet_planes = []
-  plane_centers = []
   dist = torch.cdist(embeddings, embeddings)
-  topk_index = torch.argsort(dist, dim=1)
+  topk_index = torch.topk(dist, num_data, largest=False, dim=1)[1]
+
   used_in_facet = torch.ones(num_data, dtype=torch.float) * -1
   residues = torch.zeros(num_data, dtype=torch.float)
   outlier_points = []
+  facet_planes = []
+  plane_centers = []
 
   facet_num = 0
   for i in tqdm(range(num_data)):
@@ -33,8 +62,12 @@ def get_facet_planes(embeddings, facet_dim=3, residue_threshold=0.01):
 
       origin = current_points.mean(dim=0)
       current_points_centered = current_points - origin
-      _, _, vh = torch.linalg.svd(current_points_centered, full_matrices=False)
-      vh = vh[:facet_dim, :]
+      try:
+        _, _, vh = torch.linalg.svd(current_points_centered, full_matrices=False)
+        vh = vh[:facet_dim, :]
+      except torch._C.LinAlgError:
+        continue
+
       orig_residue = get_residue(current_points_centered[0, :].unsqueeze(0), vh)
       if (orig_residue > residue_threshold):
         continue
@@ -53,8 +86,6 @@ def get_facet_planes(embeddings, facet_dim=3, residue_threshold=0.01):
       point_plane[:, :] = vh
       facet_planes.append(point_plane)
 
-      plane_centers.append(origin)
-
       used_in_facet[topk_index[i, examples_to_select]] = facet_num
       facet_num += 1
 
@@ -65,51 +96,5 @@ def get_facet_planes(embeddings, facet_dim=3, residue_threshold=0.01):
 
   facet_planes = torch.stack(facet_planes)
   plane_centers = torch.stack(plane_centers)
-  return facet_planes, plane_centers, residues, used_in_facet, outlier_points
-
-
-if __name__ == "__main__":
-  import os
-  from glob import glob
-  from scipy.io import loadmat
-  from kneed import KneeLocator
-  from analysis import extract_epoch
-
-  experiment_path = "../logs/resnet18_run1/"
-  layers = ["layer1.1.conv2", "layer2.1.conv1", "layer3.1.conv1", "layer4.1.conv2"]
-
-  non_zero_idx = None
-  for layer in layers:
-    filenames = list(
-      reversed(sorted(glob(os.path.join(experiment_path, layer, "*.mat")), key=extract_epoch))
-    )
-    for fname in filenames:
-      print(f"Working on {layer} -> {os.path.basename(fname)}")
-      data = torch.from_numpy(loadmat(fname)[layer])
-
-      if non_zero_idx is None:
-        N, C, H, W = data.shape
-        stat = data.abs().mean(0).reshape(C, H * W).mean(-1)
-        y, _ = torch.sort(stat, descending=True)
-        x = list(range(len(y)))
-        kn = KneeLocator(x, y.numpy(), curve='convex', direction='decreasing').knee
-        non_zero_idx = stat >= y[kn] * 0.95
-
-      data = data[:, non_zero_idx].reshape(data.shape[0], -1)
-      data = F.normalize(data)
-
-      facet_planes, plane_centers, residues, used_in_facet, outlier_points = get_facet_planes(data)
-
-      save_dict = {
-        "facet_basis": facet_planes,
-        "facet_centers": plane_centers,
-        "fit_errors": residues,
-        "point_facet_map": used_in_facet,
-        "outliers": outlier_points
-      }
-
-      torch.save(
-        save_dict,
-        os.path.join(experiment_path, layer,
-                     os.path.basename(fname).split(".")[0] + "_facets.pth")
-      )
+  transformed, chosen_facets = transform(facet_planes, plane_centers, embeddings)
+  return transformed.numpy(), chosen_facets.numpy()
