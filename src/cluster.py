@@ -4,6 +4,24 @@ from sklearn.cluster import HDBSCAN
 from sklearn.model_selection import ParameterGrid
 
 
+def create_cluster_matrix(cluster_indices, class_labels):
+  num_classes = len(np.unique(class_labels))
+  cluster_matrix = np.zeros((num_classes, num_classes), dtype=int)
+  valid_clusters = np.unique(cluster_indices[cluster_indices != -1])
+
+  for cluster in valid_clusters:
+    points_in_cluster = np.where(cluster_indices == cluster)[0]
+    classes_in_cluster = np.unique(class_labels[points_in_cluster])
+    for i in range(len(classes_in_cluster)):
+      for j in range(i, len(classes_in_cluster)):
+        class_i = classes_in_cluster[i]
+        class_j = classes_in_cluster[j]
+        cluster_matrix[class_i, class_j] += 1
+        if class_i != class_j:
+          cluster_matrix[class_j, class_i] += 1
+  return cluster_matrix
+
+
 def select_random_samples(labels, num_samples_per_label):
   unique_labels = np.unique(labels)
   selected_indices = []
@@ -40,18 +58,22 @@ def parameter_search(activations, labels, param_grid):
 if __name__ == "__main__":
   import os
   import numpy as np
+  import pickle as p
   import pandas as pd
   from glob import glob
   from scipy.io import loadmat
   from kneed import KneeLocator
   from collections import defaultdict
-  from manifold import get_facet_proj
-  from dim_reduction import low_rank_approximation
 
   manifold = True
 
-  experiment_path = "../logs/resnet18_run1/"
-  layer = "layer3.1.conv1"
+  if manifold:
+    from manifold import get_facet_proj
+  else:
+    from dim_reduction import low_rank_approximation
+
+  experiment_path = "../logs/resnet18_run1/activations/"
+  layer = "layer4.1.conv2"
   filenames = list(
     reversed(sorted(glob(os.path.join(experiment_path, layer, "*.mat")), key=extract_epoch))
   )
@@ -59,8 +81,6 @@ if __name__ == "__main__":
   param = None
   df = defaultdict(list)
   np.random.seed(9001)
-
-  facet_dim = 3
 
   for fname in filenames:
     print(f"Working on {layer} -> {os.path.basename(fname)}")
@@ -81,7 +101,16 @@ if __name__ == "__main__":
     data = data[:, non_zero_idx.squeeze()].reshape(data.shape[0], -1)
 
     if manifold:
-      transformed_data, _ = get_facet_proj(data, facet_dim=facet_dim)
+      facet_planes, plane_centers, transformed_data, _ = get_facet_proj(data)
+      with open(os.path.splitext(fname)[0] + '_manifold.pkl', "wb") as f:
+        p.dump(
+          {
+            "plane_basis": facet_planes,
+            "plane_centers": plane_centers
+          },
+          f,
+          protocol=p.HIGHEST_PROTOCOL
+        )
     else:
       transformed_data, _, _ = low_rank_approximation(data, 0.95, False)
 
@@ -90,7 +119,7 @@ if __name__ == "__main__":
       param, score = parameter_search(
         transformed_data, labels, {
           "cluster_selection_epsilon": [0, 0.1, 0.5],
-          "min_cluster_size": [10, 20, 30, 50, 60, 80, 100],
+          "min_cluster_size": [5, 10, 20, 30, 50, 60, 70],
         }
       )
       print(f"+ Best parameters {param}")
@@ -110,6 +139,8 @@ if __name__ == "__main__":
     df["homogeneity_score"].append(homogeneity_score)
     df["completeness_score"].append(completeness_score)
     df["silhouette_score"].append(silhouette_score)
+    mat = create_cluster_matrix(clusters, labels)
+    np.save(os.path.splitext(fname)[0] + "_class_vs_cluster_matrix.npy", mat)
 
   df = pd.DataFrame(df)
-  df.to_csv(f"../data/{layer.replace('.', '_')}.csv")
+  df.to_csv(f"{os.path.join(experiment_path, layer.replace('.', '_') + '.csv')}")

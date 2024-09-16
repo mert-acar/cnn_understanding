@@ -34,10 +34,7 @@ def get_residue(points, plane):
   return residue
 
 
-def get_facet_proj(embeddings, facet_dim=3, residue_threshold=0.01):
-  if not isinstance(embeddings, torch.Tensor):
-    embeddings = torch.from_numpy(embeddings)
-  embeddings = F.normalize(embeddings)
+def get_facet_planes(embeddings, facet_dim=3, residue_threshold=0.01):
   num_data = embeddings.shape[0]
   dist = torch.cdist(embeddings, embeddings)
   topk_index = torch.topk(dist, num_data, largest=False, dim=1)[1]
@@ -96,5 +93,13 @@ def get_facet_proj(embeddings, facet_dim=3, residue_threshold=0.01):
 
   facet_planes = torch.stack(facet_planes)
   plane_centers = torch.stack(plane_centers)
+  return facet_planes, plane_centers
+
+
+def get_facet_proj(embeddings, facet_dim=3, residue_threshold=0.01):
+  if not isinstance(embeddings, torch.Tensor):
+    embeddings = torch.from_numpy(embeddings)
+  embeddings = F.normalize(embeddings)
+  facet_planes, plane_centers = get_facet_planes(embeddings, facet_dim, residue_threshold)
   transformed, chosen_facets = transform(facet_planes, plane_centers, embeddings)
-  return transformed.numpy(), chosen_facets.numpy()
+  return facet_planes.numpy(), plane_centers.numpy(), transformed.numpy(), chosen_facets.numpy()
