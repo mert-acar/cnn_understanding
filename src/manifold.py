@@ -61,10 +61,17 @@ def get_facet_planes(embeddings, facet_dim=3, residue_threshold=0.01):
       current_points_centered = current_points - origin
       try:
         _, _, vh = torch.linalg.svd(current_points_centered, full_matrices=False)
-        vh = vh[:facet_dim, :]
-      except torch._C.LinAlgError:
-        continue
+      except torch._C._LinAlgError:
+        try:
+          _, _, vh = torch.linalg.svd(
+            current_points_centered + 1e-5 * torch.randn_like(current_points_centered),
+            full_matrices=False
+          )
+        except torch._C._LinAlgError:
+          print("unfixable")
+          continue
 
+      vh = vh[:facet_dim, :]
       orig_residue = get_residue(current_points_centered[0, :].unsqueeze(0), vh)
       if (orig_residue > residue_threshold):
         continue

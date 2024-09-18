@@ -1,4 +1,3 @@
-import re
 import sklearn.metrics as metrics
 from sklearn.cluster import HDBSCAN
 from sklearn.model_selection import ParameterGrid
@@ -22,24 +21,6 @@ def create_cluster_matrix(cluster_indices, class_labels):
   return cluster_matrix
 
 
-def select_random_samples(labels, num_samples_per_label):
-  unique_labels = np.unique(labels)
-  selected_indices = []
-  for label in unique_labels:
-    indices = np.where(labels == label)[0]
-    if len(indices) < num_samples_per_label:
-      raise ValueError(f"Not enough samples for label {label}. Only {len(indices)} available.")
-    selected = np.random.choice(indices, num_samples_per_label, replace=False)
-    selected_indices.extend(selected)
-  return np.array(selected_indices)
-
-
-# Function to extract epoch number from the key
-def extract_epoch(key):
-  match = re.search(r'epoch_(\d+)', key)
-  return int(match.group(1)) if match else 0
-
-
 def parameter_search(activations, labels, param_grid):
   best_score = -9999
   best_param = None
@@ -60,29 +41,28 @@ if __name__ == "__main__":
   import numpy as np
   import pickle as p
   import pandas as pd
-  from glob import glob
   from scipy.io import loadmat
   from kneed import KneeLocator
+  from utils import get_filenames
   from collections import defaultdict
 
   manifold = True
+  create_matrix = False
 
   if manifold:
     from manifold import get_facet_proj
   else:
     from dim_reduction import low_rank_approximation
 
-  experiment_path = "../logs/resnet18_run1/activations/"
-  layer = "layer4.1.conv2"
-  filenames = list(
-    reversed(sorted(glob(os.path.join(experiment_path, layer, "*.mat")), key=extract_epoch))
-  )
+  layer = "layer1.1.conv2"
+  filenames = get_filenames(layer)
+
   non_zero_idx = None
   param = None
   df = defaultdict(list)
   np.random.seed(9001)
 
-  for fname in filenames:
+  for fname in [filenames[0]] + filenames[5:]:
     print(f"Working on {layer} -> {os.path.basename(fname)}")
     data = loadmat(fname)
     labels = data["labels"][0]
@@ -117,10 +97,7 @@ if __name__ == "__main__":
     if param is None:
       print("+ Parameter searching...")
       param, score = parameter_search(
-        transformed_data, labels, {
-          "cluster_selection_epsilon": [0, 0.1, 0.5],
-          "min_cluster_size": [5, 10, 20, 30, 50, 60, 70],
-        }
+        transformed_data, labels, {"min_cluster_size": [5, 10, 20, 30, 50, 60, 70]}
       )
       print(f"+ Best parameters {param}")
 
@@ -139,8 +116,9 @@ if __name__ == "__main__":
     df["homogeneity_score"].append(homogeneity_score)
     df["completeness_score"].append(completeness_score)
     df["silhouette_score"].append(silhouette_score)
-    mat = create_cluster_matrix(clusters, labels)
-    np.save(os.path.splitext(fname)[0] + "_class_vs_cluster_matrix.npy", mat)
+    if create_matrix:
+      mat = create_cluster_matrix(clusters, labels)
+      np.save(os.path.splitext(fname)[0] + "_class_vs_cluster_matrix.npy", mat)
 
   df = pd.DataFrame(df)
-  df.to_csv(f"{os.path.join(experiment_path, layer.replace('.', '_') + '.csv')}")
+  df.to_csv(os.path.join("../logs/resnet18_run1/activations/", layer.replace('.', '_') + '.csv'))

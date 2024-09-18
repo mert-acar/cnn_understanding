@@ -1,10 +1,19 @@
+import re
+import os
 import torch
 import numpy as np
+import pandas as pd
+from glob import glob
 from torchvision import models
 from torchvision.datasets import MNIST
 from torch.utils.data import DataLoader
-from sklearn.preprocessing import StandardScaler
 from torchvision.transforms import Compose, ToTensor, Normalize
+
+
+# Function to extract epoch number from the key
+def extract_epoch(key):
+  match = re.search(r'epoch_(\d+)', key)
+  return int(match.group(1)) if match else 0
 
 
 def create_dataloader(data_root="../data/", batch_size=1, num_workers=4, split="train", **kwargs):
@@ -26,17 +35,53 @@ def create_model(model_name, model_weights="DEFAULT", **kwargs):
   return model
 
 
-def average_distance(data):
-  n = data.shape[0]
-  distances = np.linalg.norm(data[:, np.newaxis] - data, axis=2)
-  total_distance = np.sum(np.triu(distances, k=1))
-  num_pairs = (n * (n - 1)) // 2
-  return total_distance / num_pairs
+def get_filenames(
+  layer, experiment_path="../logs/resnet18_run1/activations/", reverse=True, ext="mat"
+):
+  return sorted(
+    glob(os.path.join(experiment_path, layer, f"*.{ext}")), key=extract_epoch, reverse=reverse
+  )
 
 
-def analyze_data(data):
-  scaler = StandardScaler()
-  scaled_data = scaler.fit_transform(data)
-  avg_mean_distance = np.mean(np.mean(np.abs(scaled_data), axis=0))
-  avg_max_distance = np.mean(np.max(np.abs(scaled_data), axis=0))
-  return {"avg_mean_distance": avg_mean_distance, "avg_max_distance": avg_max_distance}
+def cluster_matrix_to_df(matrices, titles):
+  left = []
+  right = []
+  for i, (mat, title) in enumerate(zip(matrices, titles)):
+    b = np.full((13, 11), "").astype(object)
+    b[1, 1] = title
+    b[2, 0] = "label"
+    b[2, 1:] = np.linspace(0, 9, 10, dtype=int)
+    b[3:, 0] = np.linspace(0, 9, 10, dtype=int)
+    b[3:, 1:] = mat
+    if i < 5:
+      left.append(b)
+    else:
+      right.append(b)
+  left = np.vstack(left)
+  right = np.vstack(right)
+  b_col = np.full((left.shape[0], 1), "")
+  combined = np.hstack([left, b_col, right])
+  return pd.DataFrame(combined)
+
+
+def select_random_samples(labels, num_samples_per_label):
+  unique_labels = np.unique(labels)
+  selected_indices = []
+  for label in unique_labels:
+    indices = np.where(labels == label)[0]
+    if len(indices) < num_samples_per_label:
+      raise ValueError(f"Not enough samples for label {label}. Only {len(indices)} available.")
+    selected = np.random.choice(indices, num_samples_per_label, replace=False)
+    selected_indices.extend(selected)
+  return np.array(selected_indices)
+
+
+if __name__ == "__main__":
+  layer = "layer1.1.conv2"
+  filenames = get_filenames(layer)
+  matrices = [
+    np.load(os.path.splitext(fname)[0] + "_class_vs_cluster_matrix.npy") for fname in filenames[:10]
+  ]
+  titles = [f"epoch {i}" for i in reversed(range(25, 35))]
+  df = cluster_matrix_to_df(matrices, titles)
+  df.to_excel(layer + ".xlsx", index=False, header=False)
