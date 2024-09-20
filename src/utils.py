@@ -42,7 +42,7 @@ def create_model(model_name, model_weights="DEFAULT", **kwargs):
 
 
 def get_filenames(
-  layer, experiment_path="../logs/resnet18_run1/activations/", reverse=True, ext="mat"
+  layer, experiment_path=os.path.join("..", "logs", "resnet18_run1", "activations"), reverse=True, ext="mat"
 ):
   return sorted(
     glob(os.path.join(experiment_path, layer, f"*.{ext}")), key=extract_epoch, reverse=reverse

@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pickle as p
 import pandas as pd
+from tqdm import tqdm
 from scipy.io import loadmat
 from functools import partial
 import sklearn.metrics as metrics
@@ -38,9 +39,10 @@ def main(layer, manifold, create_matrix, algo):
   param = None
   df = defaultdict(list)
   np.random.seed(9001)
-
-  for fname in filenames:
-    print(f"Working on {layer} -> {os.path.basename(fname)}")
+  print(f"+ Working on {layer}")
+  pbar = tqdm(filenames)
+  for fname in pbar:
+    pbar.set_description(os.path.basename(fname))
     data = loadmat(fname)
     labels = data["labels"][0]
 
@@ -48,7 +50,6 @@ def main(layer, manifold, create_matrix, algo):
 
     if non_zero_idx is None:
       non_zero_idx = find_non_zero_idx(data)
-      print(f"+ Remaining: {non_zero_idx.sum()} / {data.shape[1]}")
 
     data = data[:, non_zero_idx.squeeze()].reshape(data.shape[0], -1)
     data = normalize(data)
@@ -107,10 +108,10 @@ def main(layer, manifold, create_matrix, algo):
         best_n = (np.unique(clusters) != -1).sum()
         n_noisy_samples = 100 * sum(clusters == -1) / len(clusters)
 
-    print(f"Best parameters: {best_param}")
-    print(
-      f"+ Num_clusters: {best_n} | Homogeneity: {best_h:.3f} | Completeness: {best_c:.3f} | Sillhouette: {best_s:.3f}"
-    )
+    # print(f"Best parameters: {best_param}")
+    # print(
+    #   f"+ Num_clusters: {best_n} | Homogeneity: {best_h:.3f} | Completeness: {best_c:.3f} | Sillhouette: {best_s:.3f}"
+    # )
 
     df["n_clusters"].append(best_n)
     df["n_noisy_samples"].append(n_noisy_samples)
