@@ -1,6 +1,17 @@
+import os
+import numpy as np
+import pickle as p
+import pandas as pd
+from scipy.io import loadmat
+from functools import partial
 import sklearn.metrics as metrics
-from sklearn.cluster import HDBSCAN
+import sklearn.cluster as cluster
+from collections import defaultdict
+from scipy.spatial.distance import pdist
+from manifold import get_facet_proj, transform
+from dim_reduction import low_rank_approximation
 from sklearn.model_selection import ParameterGrid
+from utils import get_filenames, find_non_zero_idx, normalize
 
 
 def create_cluster_matrix(cluster_indices, class_labels):
@@ -21,48 +32,14 @@ def create_cluster_matrix(cluster_indices, class_labels):
   return cluster_matrix
 
 
-def parameter_search(activations, labels, param_grid):
-  best_score = -9999
-  best_param = None
-  for param in ParameterGrid(param_grid):
-    try:
-      clusters = HDBSCAN(**param).fit(activations).labels_
-    except TypeError:
-      continue
-    score = metrics.homogeneity_score(labels, clusters)
-    if score > best_score:
-      best_score = score
-      best_param = param
-  return best_param, best_score
-
-
-if __name__ == "__main__":
-  import os
-  import numpy as np
-  import pickle as p
-  import pandas as pd
-  from scipy.io import loadmat
-  from kneed import KneeLocator
-  from utils import get_filenames
-  from collections import defaultdict
-
-  manifold = True
-  create_matrix = False
-
-  if manifold:
-    from manifold import get_facet_proj
-  else:
-    from dim_reduction import low_rank_approximation
-
-  layer = "layer1.1.conv2"
+def main(layer, manifold, create_matrix, algo):
   filenames = get_filenames(layer)
-
   non_zero_idx = None
   param = None
   df = defaultdict(list)
   np.random.seed(9001)
 
-  for fname in [filenames[0]] + filenames[5:]:
+  for fname in filenames:
     print(f"Working on {layer} -> {os.path.basename(fname)}")
     data = loadmat(fname)
     labels = data["labels"][0]
@@ -70,55 +47,90 @@ if __name__ == "__main__":
     data = data[layer]
 
     if non_zero_idx is None:
-      N, C, H, W = data.shape
-      stat = np.reshape(np.abs(data).mean(0), (C, H * W)).mean(-1)
-      y = np.sort(stat)[::-1]
-      x = list(range(len(y)))
-      kn = KneeLocator(x, y, curve='convex', direction='decreasing').knee
-      non_zero_idx = stat >= y[kn] * 0.95
+      non_zero_idx = find_non_zero_idx(data)
       print(f"+ Remaining: {non_zero_idx.sum()} / {data.shape[1]}")
 
     data = data[:, non_zero_idx.squeeze()].reshape(data.shape[0], -1)
+    data = normalize(data)
 
     if manifold:
-      facet_planes, plane_centers, transformed_data, _ = get_facet_proj(data)
-      with open(os.path.splitext(fname)[0] + '_manifold.pkl', "wb") as f:
-        p.dump(
-          {
-            "plane_basis": facet_planes,
-            "plane_centers": plane_centers
-          },
-          f,
-          protocol=p.HIGHEST_PROTOCOL
+      pkl = os.path.splitext(fname)[0] + '_manifold.pkl'
+      if os.path.exists(pkl):
+        with open(pkl, "rb") as f:
+          facet_dict = p.load(f)
+        transformed_data, _ = transform(
+          facet_dict["plane_basis"], facet_dict["plane_centers"], data
         )
+      else:
+        facet_planes, plane_centers, transformed_data, _ = get_facet_proj(data)
+        with open(pkl, "wb") as f:
+          p.dump(
+            {
+              "plane_basis": facet_planes,
+              "plane_centers": plane_centers
+            },
+            f,
+            protocol=p.HIGHEST_PROTOCOL
+          )
     else:
       transformed_data, _, _ = low_rank_approximation(data, 0.95, False)
 
-    if param is None:
-      print("+ Parameter searching...")
-      param, score = parameter_search(
-        transformed_data, labels, {"min_cluster_size": [5, 10, 20, 30, 50, 60, 70]}
-      )
-      print(f"+ Best parameters {param}")
+    if algo == "HDBSCAN":
+      cluster_algorithm = cluster.HDBSCAN
+      param_grid = {"min_cluster_size": [5, 10, 20, 30, 50, 60, 70]}
+    else:
+      cluster_algorithm = partial(cluster.AgglomerativeClustering, n_clusters=None)
+      dist = pdist(transformed_data, metric='euclidean').mean()
+      param_grid = {"distance_threshold": [i * dist for i in np.linspace(6, 8, 8)]}
 
-    clusters = HDBSCAN(**param).fit(transformed_data).labels_
-    n_clusters = len(set(clusters)) - 1
-    n_noisy_samples = 100 * sum(clusters == -1) / len(clusters)
-    homogeneity_score = metrics.homogeneity_score(labels, clusters)
-    completeness_score = metrics.completeness_score(labels, clusters)
-    silhouette_score = metrics.silhouette_score(transformed_data, clusters)
+    best_score = -9999
+    best_param = None
+    for param in ParameterGrid(param_grid):
+      try:
+        clusters = cluster_algorithm(**param).fit(transformed_data).labels_
+      except TypeError:
+        continue
+      h = metrics.homogeneity_score(labels, clusters)
+      c = metrics.completeness_score(labels, clusters)
+      try:
+        s = metrics.silhouette_score(transformed_data, clusters)
+      except ValueError:
+        s = -1
+      score = (h + c + s) / 3
+      if score > best_score:
+        best_score = score
+        best_param = param
+        best_clusters = clusters
+        best_h = h
+        best_c = c
+        best_s = s
+        best_n = (np.unique(clusters) != -1).sum()
+        n_noisy_samples = 100 * sum(clusters == -1) / len(clusters)
 
+    print(f"Best parameters: {best_param}")
     print(
-      f"+ Num_clusters: {n_clusters} | Noisy Points: {n_noisy_samples:.2f}% | Homogeneity: {homogeneity_score:.3f} | Completeness: {completeness_score:.3f}"
+      f"+ Num_clusters: {best_n} | Homogeneity: {best_h:.3f} | Completeness: {best_c:.3f} | Sillhouette: {best_s:.3f}"
     )
-    df["n_clusters"].append(n_clusters)
+
+    df["n_clusters"].append(best_n)
     df["n_noisy_samples"].append(n_noisy_samples)
-    df["homogeneity_score"].append(homogeneity_score)
-    df["completeness_score"].append(completeness_score)
-    df["silhouette_score"].append(silhouette_score)
+    df["homogeneity_score"].append(best_h)
+    df["completeness_score"].append(best_c)
+    df["silhouette_score"].append(best_s)
     if create_matrix:
-      mat = create_cluster_matrix(clusters, labels)
-      np.save(os.path.splitext(fname)[0] + "_class_vs_cluster_matrix.npy", mat)
+      mat = create_cluster_matrix(best_clusters, labels)
+      np.save(os.path.splitext(fname)[0] + f"_{algo}_manifold_{manifold}_cc.npy", mat)
 
   df = pd.DataFrame(df)
-  df.to_csv(os.path.join("../logs/resnet18_run1/activations/", layer.replace('.', '_') + '.csv'))
+  df.to_csv(
+    os.path.join(
+      "../logs/resnet18_run1/activations/",
+      f"{layer.replace('.', '_')}_{algo}_manifold_{manifold}.csv"
+    )
+  )
+
+
+if __name__ == "__main__":
+  from fire import Fire
+  # main(layer, manifold, create_matrix, algo):
+  Fire(main)
