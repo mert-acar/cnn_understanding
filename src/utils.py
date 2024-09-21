@@ -42,7 +42,10 @@ def create_model(model_name, model_weights="DEFAULT", **kwargs):
 
 
 def get_filenames(
-  layer, experiment_path=os.path.join("..", "logs", "resnet18_run1", "activations"), reverse=True, ext="mat"
+  layer,
+  experiment_path=os.path.join("..", "logs", "resnet18_run1", "activations"),
+  reverse=True,
+  ext="mat"
 ):
   return sorted(
     glob(os.path.join(experiment_path, layer, f"*.{ext}")), key=extract_epoch, reverse=reverse
@@ -50,24 +53,17 @@ def get_filenames(
 
 
 def cluster_matrix_to_df(matrices, titles):
-  left = []
-  right = []
-  for i, (mat, title) in enumerate(zip(matrices, titles)):
+  col = []
+  for mat, title in zip(matrices, titles):
     b = np.full((13, 11), "").astype(object)
     b[1, 1] = title
     b[2, 0] = "label"
     b[2, 1:] = np.linspace(0, 9, 10, dtype=int)
     b[3:, 0] = np.linspace(0, 9, 10, dtype=int)
     b[3:, 1:] = mat
-    if i < 5:
-      left.append(b)
-    else:
-      right.append(b)
-  left = np.vstack(left)
-  right = np.vstack(right)
-  b_col = np.full((left.shape[0], 1), "")
-  combined = np.hstack([left, b_col, right])
-  return pd.DataFrame(combined)
+    col.append(b)
+  col = np.vstack(col)
+  return pd.DataFrame(col)
 
 
 def select_random_samples(labels, num_samples_per_label):
@@ -95,9 +91,8 @@ def find_non_zero_idx(data, beta=0.95):
 if __name__ == "__main__":
   layer = "layer1.1.conv2"
   filenames = get_filenames(layer)
-  matrices = [
-    np.load(os.path.splitext(fname)[0] + "_class_vs_cluster_matrix.npy") for fname in filenames[:10]
-  ]
+  s = "_AgglomerativeClustering_manifold_0_cc.npy"
+  matrices = [np.load(os.path.splitext(fname)[0] + s) for fname in filenames[:5]]
   titles = [f"epoch {i}" for i in reversed(range(25, 35))]
   df = cluster_matrix_to_df(matrices, titles)
-  df.to_excel(layer + ".xlsx", index=False, header=False)
+  df.to_excel(layer + "_" + os.path.splitext(s)[0] + ".xlsx", index=False, header=False)
