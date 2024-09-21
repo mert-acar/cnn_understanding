@@ -89,10 +89,30 @@ def find_non_zero_idx(data, beta=0.95):
 
 
 if __name__ == "__main__":
-  layer = "layer1.1.conv2"
-  filenames = get_filenames(layer)
-  s = "_AgglomerativeClustering_manifold_0_cc.npy"
-  matrices = [np.load(os.path.splitext(fname)[0] + s) for fname in filenames[:5]]
-  titles = [f"epoch {i}" for i in reversed(range(25, 35))]
-  df = cluster_matrix_to_df(matrices, titles)
-  df.to_excel(layer + "_" + os.path.splitext(s)[0] + ".xlsx", index=False, header=False)
+  from openpyxl import Workbook
+  from openpyxl.utils.dataframe import dataframe_to_rows
+
+  layers = ["layer1.1.conv2", "layer2.1.conv1", "layer3.1.conv1", "layer4.1.conv2"]
+  for layer in layers:
+    filenames = get_filenames(layer)
+    ss = [
+      "_AgglomerativeClustering_manifold_0_cc.npy", "_AgglomerativeClustering_manifold_1_cc.npy",
+      "_HDBSCAN_manifold_0_cc.npy", "_HDBSCAN_manifold_1_cc.npy"
+    ]
+    for s in ss:
+      matrices = [np.load(os.path.splitext(fname)[0] + s) for fname in filenames[:5]]
+      titles = [f"epoch {i}" for i in reversed(range(25, 35))]
+      df = cluster_matrix_to_df(matrices, titles)
+
+      wb = Workbook()
+      ws = wb.active
+
+      for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=False), 1):
+        ws.append(row)
+
+      for i in range(len(matrices)):
+        start_row = 13 * i + 2
+        ws.merge_cells(start_row=start_row, start_column=2, end_row=start_row, end_column=11)
+
+      output_filename = f"{layer}{os.path.splitext(s)[0]}.xlsx"
+      wb.save(output_filename)
