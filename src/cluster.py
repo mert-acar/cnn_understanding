@@ -125,7 +125,7 @@ def main(layer, manifold, create_matrix, algo):
   df = pd.DataFrame(df)
   df.to_csv(
     os.path.join(
-      "../logs/resnet18_run1/activations/",
+      "..", "logs", "resnet18_run1", "activations",
       f"{layer.replace('.', '_')}_{algo}_manifold_{manifold}.csv"
     )
   )
