@@ -44,7 +44,8 @@ def main(experiment_path, checkpoint_num=3, *hook_targets):
   model = create_model(**config).to(device)
   state = torch.load(
     os.path.join(experiment_path, "checkpoints", f"checkpoint_{checkpoint_num}.pt"),
-    map_location=device
+    map_location=device,
+    weights_only=True
   )
   model.load_state_dict(state)
   model.eval()

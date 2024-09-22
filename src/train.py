@@ -33,7 +33,7 @@ if __name__ == "__main__":
     else:
       print("Exit!")
       raise SystemExit
-  os.mkdir(config["output_path"])
+  os.makedirs(os.path.join(config["output_path"], "checkpoints"))
   copyfile("config.yaml", os.path.join(config["output_path"], "ExperimentSummary.yaml"))
 
   device = torch.device("cuda" if torch.cuda.is_available() else "mps")
@@ -100,7 +100,7 @@ if __name__ == "__main__":
           best_error = running_error
           best_epoch = epoch
 
-    ckpt_path = os.path.join(config["output_path"], f"checkpoint_{epoch + 1}.pt")
+    ckpt_path = os.path.join(config["output_path"], "checkpoints", f"checkpoint_{epoch + 1}.pt")
     print(f"+ Saving the model to {ckpt_path}...")
     torch.save(model.state_dict(), ckpt_path)
 

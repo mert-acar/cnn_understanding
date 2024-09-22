@@ -11,7 +11,7 @@ path=$1
 layer_name=$2
 
 # Count the number of .pt files in the given path
-pt_files=("$path"/*.pt)
+pt_files=("$path"/checkpoints/*.pt)
 pt_file_count=${#pt_files[@]}
 
 # Check if there are any .pt files in the directory
