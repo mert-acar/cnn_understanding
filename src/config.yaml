@@ -2,7 +2,7 @@
 data_root: ../data/
 
 # Model
-model_name: resnet18
+model_name: alexnet
 model_weights: DEFAULT
 
 # Training
