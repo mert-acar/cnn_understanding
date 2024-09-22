@@ -1,9 +1,10 @@
 import os
 import torch
 from tqdm import tqdm
+from model import ConvNet
 from yaml import full_load
 import torch.nn.functional as F
-from utils import create_dataloader, create_model
+from utils import create_dataloader
 
 
 def main(experiment_path, checkpoint_num=1):
@@ -14,7 +15,7 @@ def main(experiment_path, checkpoint_num=1):
 
   dataloader = create_dataloader(split="test", **config)
 
-  model = create_model(**config).to(device)
+  model = ConvNet(config["model_config"]).to(device)
   weights = torch.load(
     os.path.join(experiment_path, f"checkpoint_{checkpoint_num}.pt"), map_location=device
   )

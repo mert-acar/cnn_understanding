@@ -8,7 +8,8 @@ import torch.nn.functional as F
 from shutil import rmtree, copyfile
 from torch.optim.lr_scheduler import StepLR
 
-from utils import create_dataloader, create_model
+from model import ConvNet
+from utils import create_dataloader
 
 
 def group_lasso_penalty():
@@ -44,7 +45,7 @@ if __name__ == "__main__":
     "test": create_dataloader(split="test", **config),
   }
 
-  model = create_model(**config).to(device)
+  model = ConvNet(config["model_config"]).to(device)
   optimizer = torch.optim.Adam(
     model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
   )

@@ -33,8 +33,8 @@ def create_cluster_matrix(cluster_indices, class_labels):
   return cluster_matrix
 
 
-def main(layer, manifold, create_matrix, algo):
-  filenames = get_filenames(layer)
+def main(experiment_path, layer, manifold, create_matrix, algo):
+  filenames = get_filenames(layer, experiment_path=experiment_path)
   non_zero_idx = None
   param = None
   df = defaultdict(list)
@@ -50,8 +50,10 @@ def main(layer, manifold, create_matrix, algo):
 
     if non_zero_idx is None:
       non_zero_idx = find_non_zero_idx(data)
+      print(f"Remaining: {non_zero_idx.sum()} / {data.shape[1]}")
 
     data = data[:, non_zero_idx.squeeze()].reshape(data.shape[0], -1)
+    print(f"Data shape: {data.shape}")
     data = normalize(data)
 
     if manifold:
@@ -75,6 +77,7 @@ def main(layer, manifold, create_matrix, algo):
           )
     else:
       transformed_data, _, _ = low_rank_approximation(data, 0.95, False)
+    print(f"After transform: {transformed_data.shape[1]} / {data.shape[1]}")
 
     if algo == "HDBSCAN":
       cluster_algorithm = cluster.HDBSCAN
@@ -108,10 +111,10 @@ def main(layer, manifold, create_matrix, algo):
         best_n = (np.unique(clusters) != -1).sum()
         n_noisy_samples = 100 * sum(clusters == -1) / len(clusters)
 
-    # print(f"Best parameters: {best_param}")
-    # print(
-    #   f"+ Num_clusters: {best_n} | Homogeneity: {best_h:.3f} | Completeness: {best_c:.3f} | Sillhouette: {best_s:.3f}"
-    # )
+    print(f"Best parameters: {best_param}")
+    print(
+      f"+ Num_clusters: {best_n} | Homogeneity: {best_h:.3f} | Completeness: {best_c:.3f} | Sillhouette: {best_s:.3f}"
+    )
 
     df["n_clusters"].append(best_n)
     df["n_noisy_samples"].append(n_noisy_samples)
@@ -125,7 +128,7 @@ def main(layer, manifold, create_matrix, algo):
   df = pd.DataFrame(df)
   df.to_csv(
     os.path.join(
-      "..", "logs", "resnet18_run1", "activations",
+      experiment_path,
       f"{layer.replace('.', '_')}_{algo}_manifold_{manifold}.csv"
     )
   )
@@ -133,5 +136,5 @@ def main(layer, manifold, create_matrix, algo):
 
 if __name__ == "__main__":
   from fire import Fire
-  # main(layer, manifold, create_matrix, algo):
+  # main(experiment_path, layer, manifold, create_matrix, algo):
   Fire(main)

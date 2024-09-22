@@ -4,7 +4,8 @@ from tqdm import tqdm
 from yaml import full_load
 from scipy.io import savemat
 from collections import defaultdict
-from utils import create_model, create_dataloader
+from utils import create_dataloader
+from model import ConvNet
 
 activations = defaultdict(list)
 
@@ -41,7 +42,7 @@ def main(experiment_path, checkpoint_num=3, *hook_targets):
 
   dataloader = create_dataloader(split="test", **config)
 
-  model = create_model(**config).to(device)
+  model = ConvNet(config["model_config"]).to(device)
   state = torch.load(
     os.path.join(experiment_path, "checkpoints", f"checkpoint_{checkpoint_num}.pt"),
     map_location=device,
