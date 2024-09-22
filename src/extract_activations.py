@@ -43,7 +43,8 @@ def main(experiment_path, checkpoint_num=3, *hook_targets):
 
   model = create_model(**config).to(device)
   state = torch.load(
-    os.path.join(experiment_path, f"checkpoint_{checkpoint_num}.pt"), map_location=device
+    os.path.join(experiment_path, "checkpoints", f"checkpoint_{checkpoint_num}.pt"),
+    map_location=device
   )
   model.load_state_dict(state)
   model.eval()
@@ -61,10 +62,15 @@ def main(experiment_path, checkpoint_num=3, *hook_targets):
   for key in act:
     if key == "labels":
       continue
-    out_path = os.path.join(config["output_path"], key)
+    out_path = os.path.join(config["output_path"], "activations", key)
     if not os.path.exists(out_path):
-      os.mkdir(out_path)
-    savemat(os.path.join(out_path, f"act_epoch_{checkpoint_num}.mat"), {key: act[key], "labels": act["labels"]})
+      os.makedirs(out_path)
+    savemat(
+      os.path.join(out_path, f"act_epoch_{checkpoint_num}.mat"), {
+        key: act[key],
+        "labels": act["labels"]
+      }
+    )
 
 
 if __name__ == "__main__":
