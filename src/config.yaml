@@ -2,19 +2,19 @@
 data_root: ../data/
 
 # Model
-model_name: alexnet
+model_name: vgg11
 model_weights: DEFAULT
 
 # Training
 batch_size: 32
 num_workers: 4
-num_epochs: 100
-learning_rate: 0.1
-weight_decay: 0.01
-group_lasso_coef: 0.001 # or null
+num_epochs: 5
+learning_rate: 0.001
+weight_decay: 0.0001
+group_lasso_coef: 0.0001
 scheduler_gamma: 0.7
 scheduler_step_size: 1
 
 early_stop: 6
 
-output_path: ../logs/resnet18_run1
+output_path: ../logs/resnet18_run3

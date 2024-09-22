@@ -33,14 +33,14 @@ def create_dataloader(data_root="../data/", batch_size=1, num_workers=4, split="
 
 
 def create_model(model_name, model_weights="DEFAULT", **kwargs):
-  from model import ConvNet
-  return ConvNet()
   # model = getattr(models, model_name)(weights=model_weights)
   # model.conv1 = torch.nn.Conv2d(
   #   1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
   # )
   # model.fc = torch.nn.Linear(512, 10, bias=True)
   # return model
+  from model import ConvNet
+  return ConvNet()
 
 
 def get_filenames(

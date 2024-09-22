@@ -3,6 +3,7 @@ import torch
 from time import time
 from tqdm import tqdm
 from yaml import full_load
+import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from shutil import rmtree, copyfile
 from torch.optim.lr_scheduler import StepLR
@@ -57,6 +58,7 @@ if __name__ == "__main__":
   tick = time()
   best_epoch = -1
   best_error = 999999
+  metrics = {'Loss': {'train': [], 'test': []}, 'Accuracy': {'train': [], 'test': []}}
   for epoch in range(config["num_epochs"]):
     print("-" * 20)
     print(f"Epoch {epoch + 1} / {config['num_epochs']}")
@@ -90,6 +92,8 @@ if __name__ == "__main__":
       running_error = running_error / len(dataloaders[phase])
       running_accuracy = running_accuracy / len(dataloaders[phase])
       print(f"Loss: {running_error:.5f} | Accuracy: {running_accuracy * 100:.3f}%")
+      metrics["Loss"][phase].append(running_error)
+      metrics["Accuracy"][phase].append(running_accuracy)
       if phase == "test":
         scheduler.step()
         if running_error < best_error:
@@ -110,3 +114,15 @@ if __name__ == "__main__":
   m, s = divmod(total_time, 60)
   h, m = divmod(m, 60)
   print(f"Training took {int(h):d} hours {int(m):d} minutes {s:.2f} seconds.")
+
+  fig, axs = plt.subplots(1, len(metrics), tight_layout=True, figsize=(10,5))
+  epochs = list(range(1, epoch + 2))
+  for i, (metric, arr) in enumerate(metrics.items()):
+    for phase, val in arr.items():
+      axs[i].plot(epochs, val, label=phase)
+    axs[i].set_xlabel("Epochs")
+    axs[i].set_ylabel(metric)
+    axs[i].legend()
+    axs[i].grid(True)
+  fig.suptitle("Model Performance Across Epochs")
+  plt.savefig(os.path.join(config["output_path"], "performance_curves.png"), bbox_inches="tight")

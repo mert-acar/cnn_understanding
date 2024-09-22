@@ -82,7 +82,6 @@ def get_facet_planes(embeddings, facet_dim=3, residue_threshold=0.01):
       else:
         examples_to_select = examples_to_select + [j]
 
-    print(len(examples_to_select))
     if (len(examples_to_select) >= facet_dim):
       current_points = embeddings[topk_index[i, examples_to_select], :]
       origin = current_points[0, :]
@@ -103,7 +102,6 @@ def get_facet_planes(embeddings, facet_dim=3, residue_threshold=0.01):
     else:
       outlier_points.append(embeddings[i, :])
 
-  print(facet_num)
   facet_planes = np.stack(facet_planes)
   plane_centers = np.stack(plane_centers)
   return facet_planes, plane_centers
