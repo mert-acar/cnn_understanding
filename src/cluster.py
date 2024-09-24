@@ -53,7 +53,6 @@ def main(experiment_path, layer, manifold, create_matrix, algo):
       print(f"Remaining: {non_zero_idx.sum()} / {data.shape[1]}")
 
     data = data[:, non_zero_idx.squeeze()].reshape(data.shape[0], -1)
-    print(f"Data shape: {data.shape}")
     data = normalize(data)
 
     if manifold:
@@ -77,7 +76,6 @@ def main(experiment_path, layer, manifold, create_matrix, algo):
           )
     else:
       transformed_data, _, _ = low_rank_approximation(data, 0.95, False)
-    print(f"After transform: {transformed_data.shape[1]} / {data.shape[1]}")
 
     if algo == "HDBSCAN":
       cluster_algorithm = cluster.HDBSCAN
