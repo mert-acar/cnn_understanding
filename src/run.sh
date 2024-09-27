@@ -23,6 +23,7 @@ fi
 # Loop through each .pt file and run the python script
 echo "Found $pt_file_count checkpoints"
 for ((i=1; i<pt_file_count+1; i++)); do
+    echo "Running on $i..."
     python extract_activations.py "$path" "$i" "$layer_name"
 done
 

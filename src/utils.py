@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from glob import glob
 from kneed import KneeLocator
-from torchvision import models
 from torchvision.datasets import MNIST
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, Normalize

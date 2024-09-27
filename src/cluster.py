@@ -125,10 +125,7 @@ def main(experiment_path, layer, manifold, create_matrix, algo):
 
   df = pd.DataFrame(df)
   df.to_csv(
-    os.path.join(
-      experiment_path,
-      f"{layer.replace('.', '_')}_{algo}_manifold_{manifold}.csv"
-    )
+    os.path.join(experiment_path, f"{layer.replace('.', '_')}_{algo}_manifold_{manifold}.csv")
   )
 
 

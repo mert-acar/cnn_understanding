@@ -3,6 +3,7 @@ import torch
 from tqdm import tqdm
 from yaml import full_load
 from scipy.io import savemat
+from torchvision import models
 from collections import defaultdict
 from utils import create_dataloader
 from model import ConvNet
@@ -42,7 +43,14 @@ def main(experiment_path, checkpoint_num=3, *hook_targets):
 
   dataloader = create_dataloader(split="test", **config)
 
-  model = ConvNet(config["model_config"]).to(device)
+  if "model_config" in config:
+    model = ConvNet(config["model_config"]).to(device)
+  else:
+    model = models.resnet18(weights="DEFAULT")
+    model.conv1 = torch.nn.Conv2d(1, 64, 7, 2, 3, bias=False)
+    model.fc = torch.nn.Linear(512, 10, bias=True)
+    model = model.to(device) 
+
   state = torch.load(
     os.path.join(experiment_path, "checkpoints", f"checkpoint_{checkpoint_num}.pt"),
     map_location=device,
