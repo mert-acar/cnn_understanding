@@ -50,3 +50,4 @@ if __name__ == "__main__":
   print(model)
   # inp = torch.randn(1, 1, 28, 28).to(device)
   # out = model.features(inp)
+  # print(out.shape)

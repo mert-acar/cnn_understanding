@@ -50,9 +50,9 @@ if __name__ == "__main__":
     model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
   )
   criterion = torch.nn.CrossEntropyLoss()
-  scheduler = StepLR(
-    optimizer, step_size=config["scheduler_step_size"], gamma=config["scheduler_gamma"]
-  )
+  # scheduler = StepLR(
+  #   optimizer, step_size=config["scheduler_step_size"], gamma=config["scheduler_gamma"]
+  # )
 
   group_lasso_coef = config["group_lasso_coef"]
 
@@ -96,7 +96,7 @@ if __name__ == "__main__":
       metrics["Loss"][phase].append(running_error)
       metrics["Accuracy"][phase].append(running_accuracy)
       if phase == "test":
-        scheduler.step()
+        # scheduler.step()
         if running_error < best_error:
           best_error = running_error
           best_epoch = epoch

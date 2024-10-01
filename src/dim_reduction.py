@@ -1,7 +1,6 @@
 import numpy as np
-from sklearn.decomposition import PCA
-from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import TruncatedSVD, PCA
 
 
 def low_rank_approximation(activations, rank=10, threshold=None):
