@@ -1,13 +1,27 @@
 import re
 import os
-import torch
 import numpy as np
 import pandas as pd
 from glob import glob
+from sklearn import metrics
 from kneed import KneeLocator
 from torchvision.datasets import MNIST
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, Normalize
+
+
+def performance_scores(data, cluster_labels, labels):
+  return {
+    "silhouette": metrics.silhouette_score(data, cluster_labels),
+    "calinski_harabasz_score": metrics.calinski_harabasz_score(data, cluster_labels),
+    "davies_bouldin_score": metrics.davies_bouldin_score(data, cluster_labels),
+    "homogeneity": metrics.homogeneity_score(labels, cluster_labels),
+    "completeness": metrics.completeness_score(labels, cluster_labels),
+    "v_measure": metrics.v_measure_score(labels, cluster_labels),
+    "mutual_information": metrics.adjusted_mutual_info_score(labels, cluster_labels),
+    "n_clusters": len(np.unique(cluster_labels[cluster_labels != -1])),
+    "n_noisy_samples": 100 * sum(cluster_labels == -1) / len(cluster_labels)
+  }
 
 
 def normalize(x, axis=1, eps=1e-12):
