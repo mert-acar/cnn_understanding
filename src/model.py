@@ -1,10 +1,9 @@
 import torch.nn as nn
 
+
 def conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0):
-  return [
-    nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding),
-    nn.ReLU(inplace=True)
-  ]
+  return [nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding), nn.ReLU(inplace=True)]
+
 
 class ConvNet(nn.Module):
   def __init__(self, config):
@@ -38,16 +37,3 @@ class ConvNet(nn.Module):
       x = self.pool(x)
     x = self.flat(x)
     return self.classifier(x)
-
-
-if __name__ == "__main__":
-  import torch
-  from yaml import full_load
-  with open("config.yaml", "r") as f:
-    config = full_load(f)
-  device = torch.device("cuda")
-  model = ConvNet(config["model_config"]).to(device)
-  print(model)
-  # inp = torch.randn(1, 1, 28, 28).to(device)
-  # out = model.features(inp)
-  # print(out.shape)

@@ -1,13 +1,17 @@
 import numpy as np
+from utils import normalize
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import TruncatedSVD, PCA
 
 
-def low_rank_approximation(activations, rank=10, threshold=None):
-  assert (rank is None) != (threshold is None), "Either rank or threshold should be specified"
+def low_rank_approximation(activations, n_components=10, threshold=None, norm=True):
+  assert (n_components
+          is None) != (threshold is None), "Either rank or threshold should be specified"
 
-  scaler = StandardScaler()
-  scaled_data = scaler.fit_transform(activations)
+  scaled_data = StandardScaler().fit_transform(activations)
+
+  if norm:
+    scaled_data = normalize(scaled_data)
 
   if threshold is not None:
     full_svd = TruncatedSVD(n_components=min(activations.shape[1] - 1, activations.shape[0] - 1))
@@ -21,7 +25,7 @@ def low_rank_approximation(activations, rank=10, threshold=None):
   return transformed_data
 
 
-def pca_reduction(activations, n_components=5, threshold=None):
+def pca_reduction(activations, n_components=5, threshold=None, norm=True):
   assert (n_components
           is None) != (threshold is None), "Either n_components or threshold should be specified"
 
@@ -32,6 +36,9 @@ def pca_reduction(activations, n_components=5, threshold=None):
     pca = PCA(n_components=threshold)
   else:
     pca = PCA(n_components=n_components)
+
+  if norm:
+    scaled_data = normalize(scaled_data)
 
   pca_result = pca.fit_transform(scaled_data)
   return pca_result
