@@ -1,13 +1,11 @@
 import numpy as np
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
 
 
 def svd_reduction(activations, n_components=10, threshold=None):
   assert (n_components
           is None) != (threshold is None), "Either rank or threshold should be specified"
-  centered_data = activations - activations.mean(0)
-  u, s, _ = np.linalg.svd(centered_data, full_matrices=False)
+  u, s, _ = np.linalg.svd(activations, full_matrices=False)
 
   if threshold is not None:
     s2 = s**2
@@ -26,13 +24,10 @@ def pca_reduction(activations, n_components=5, threshold=None):
   assert (n_components
           is None) != (threshold is None), "Either n_components or threshold should be specified"
 
-  # Standardize the data
-  scaled_data = StandardScaler().fit_transform(activations)
-
   if threshold is not None:
     pca = PCA(n_components=threshold)
   else:
     pca = PCA(n_components=n_components)
 
-  pca_result = pca.fit_transform(scaled_data)
+  pca_result = pca.fit_transform(activations)
   return pca_result
