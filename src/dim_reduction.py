@@ -1,31 +1,28 @@
 import numpy as np
-from utils import normalize
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import TruncatedSVD, PCA
 
 
-def low_rank_approximation(activations, n_components=10, threshold=None, norm=True):
+def svd_reduction(activations, n_components=10, threshold=None):
   assert (n_components
           is None) != (threshold is None), "Either rank or threshold should be specified"
-
-  scaled_data = StandardScaler().fit_transform(activations)
-
-  if norm:
-    scaled_data = normalize(scaled_data)
+  centered_data = activations - activations.mean(0)
+  u, s, _ = np.linalg.svd(centered_data, full_matrices=False)
 
   if threshold is not None:
-    full_svd = TruncatedSVD(n_components=min(activations.shape[1] - 1, activations.shape[0] - 1))
-    full_svd.fit(scaled_data)
-    cumulative_variance = np.cumsum(full_svd.explained_variance_ratio_)
-    n_components = np.searchsorted(cumulative_variance, threshold) + 1
+    s2 = s**2
+    energies = np.cumsum(s2) / np.sum(s2)
+    k = np.argmax(energies > threshold) + 1
+  else:
+    k = n_components
 
-  # Now initialize and apply SVD with the determined number of components
-  svd = TruncatedSVD(n_components=n_components)
-  transformed_data = svd.fit_transform(scaled_data)
-  return transformed_data
+  u_k = u[:, :k]
+  s_k = s[:k]
+  recon = np.dot(u_k, np.diag(s_k))
+  return recon
 
 
-def pca_reduction(activations, n_components=5, threshold=None, norm=True):
+def pca_reduction(activations, n_components=5, threshold=None):
   assert (n_components
           is None) != (threshold is None), "Either n_components or threshold should be specified"
 
@@ -36,9 +33,6 @@ def pca_reduction(activations, n_components=5, threshold=None, norm=True):
     pca = PCA(n_components=threshold)
   else:
     pca = PCA(n_components=n_components)
-
-  if norm:
-    scaled_data = normalize(scaled_data)
 
   pca_result = pca.fit_transform(scaled_data)
   return pca_result
