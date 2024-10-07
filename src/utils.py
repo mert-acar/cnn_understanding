@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 from glob import glob
 from sklearn import metrics
+from scipy.io import loadmat
 from kneed import KneeLocator
+from dim_reduction import svd_reduction
 from torchvision.datasets import MNIST
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, Normalize
@@ -19,7 +21,7 @@ def performance_scores(data, cluster_labels, labels):
     "completeness": metrics.completeness_score(labels, cluster_labels),
     "v_measure": metrics.v_measure_score(labels, cluster_labels),
     "mutual_information": metrics.adjusted_mutual_info_score(labels, cluster_labels),
-    "n_clusters": len(np.unique(cluster_labels[cluster_labels != -1])),
+    "num_clusters": len(np.unique(cluster_labels[cluster_labels != -1])),
     "n_noisy_samples": 100 * sum(cluster_labels == -1) / len(cluster_labels)
   }
 
@@ -90,6 +92,18 @@ def find_non_zero_idx(data, beta=0.95):
   kn = KneeLocator(x, y, curve='convex', direction='decreasing').knee
   non_zero_idx = stat >= y[kn] * beta
   return non_zero_idx
+
+
+def read_to_cluster(file_path, svd_dim=86, threshold=None, norm=True):
+  data = loadmat(file_path)
+  y = data["labels"][0]
+  X = data["activations"]
+  X = X.reshape(X.shape[0], -1)
+  # normalize the columns to length 1 -> project the manifold onto a hyper-sphere
+  if norm:
+    X = normalize(X)
+  X = svd_reduction(X - X.mean(0), n_components=svd_dim, threshold=threshold)
+  return X, y
 
 
 if __name__ == "__main__":

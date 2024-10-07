@@ -8,3 +8,4 @@ venv/
 figures/
 scripts/
 .env
+pyrightconfig.json
