@@ -77,7 +77,7 @@ def main(experiment_path, checkpoint_num=3, *hook_targets):
       os.makedirs(out_path)
     savemat(
       os.path.join(out_path, f"act_epoch_{checkpoint_num}.mat"), {
-        key: act[key],
+        "activations": act[key],
         "labels": act["labels"]
       }
     )

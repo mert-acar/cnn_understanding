@@ -2,7 +2,9 @@
 venvPath = "/opt/homebrew/Caskroom/miniconda/base/envs"
 venv = "uiuc"
 pythonPath = "/opt/homebrew/Caskroom/miniconda/base/envs/uiuc/bin/python3"
+include = ["src"]
 pythonVersion = 3.11  
 autoSearchPaths = true
-diagnosticMode = workspace
+diagnosticMode = "workspace"
+typeCheckingMode = "off"
 useLibraryCodeForTypes = false

@@ -1,51 +1,49 @@
-import pickle as p
 import numpy as np
-from sklearn import cluster as c
-from utils import read_to_cluster
+import pickle as p
+from tqdm import tqdm
+from sklearn import cluster
+from scipy.io import loadmat
+from utils import svd_reduction
 from cluster import parameter_search
 from scipy.spatial.distance import cdist
 
+
 if __name__ == "__main__":
   # experiment_path = "../logs/customnet_run2/activations/{layer}/act_epoch_{epoch}.mat"
-  # layers = [f"features.{i}" for i in range(9)] + ["pool"]
+  # layers = [f"features.{i}" for i in range(0, 9, 2)] + ["pool"]
+  # epoch = 33
+
   experiment_path = "../logs/resnet18_run1/activations/{layer}/act_epoch_{epoch}.mat"
   layers = [
-    "conv1", "layer1.0", "layer1.1", "layer2.0", "layer2.1", "layer3.0", "layer3.1", "layer4.0",
-    "layer4.1"
+    "conv1", 
+    "layer1.0", "layer1.1", "layer2.0", "layer2.1", 
+    "layer3.0", "layer3.1", "layer4.0", "layer4.1",
+    "avgpool"
   ]
   epoch = 34
 
-  # svd_dim = 86
-  # threshold = None
-  svd_dim = None
   threshold = 0.98
-
-  param_data = {}
-  for layer in layers:
-    X, y = read_to_cluster(
-      file_path=experiment_path.format(layer=layer, epoch=epoch),
-      svd_dim=svd_dim,
-      threshold=threshold,
-      norm=True
-    )
-    if X is None:
-      continue
+  svd_dim = None
+  out = {}
+  for layer in tqdm(layers):
+    data = loadmat(experiment_path.format(layer=layer, epoch=epoch))
+    y = data["labels"][0]
+    X = data["activations"]
+    X = X.mean((-2, -1))
+    X = X / np.abs(X).max()
+    X = svd_reduction(X - X.mean(0), n_components=svd_dim, threshold=threshold)
     d = cdist(X, X).mean()
-    print(f"Layer: {layer}")
-    print(f"    Shape: {X.shape}")
-    print(f"    Mean Eulidean distance: {d:.4f}")
-    params = {"n_clusters": [None], "distance_threshold": [i * d for i in np.linspace(5, 45, 20)]}
-    cluster_labels, params, score = parameter_search(X, y, c.AgglomerativeClustering, params)
-    print(f"    Optimum params: {params['distance_threshold'] / d:.4f} times the mean distance")
-    for k, v in score.items():
-      print(f"    {k}: {v:.4f}")
-    print()
-    param_data[layer] = {
-      "scores": score,
-      "params": params,
+    params = {"n_clusters": [None], "distance_threshold": [i * d for i in np.linspace(2, 30, 20)]}
+    cluster_labels, best_params, scores = parameter_search(
+      X, y, cluster.AgglomerativeClustering, params
+    )
+    out[layer] = {
+      "params": best_params,
       "cluster_labels": cluster_labels,
-      "labels": y
+      "scores": scores,
+      "svd_param": {"n_components": svd_dim, "threshold": threshold}
     }
 
-  with open(f"./data/resnet_th98_ps_AC_ep{epoch}.p", "wb") as f:
-    p.dump(param_data, f, protocol=p.HIGHEST_PROTOCOL)
+  with open("./data/resnet_clusters.p", "wb") as f:
+  # with open("./data/customnet_clusters.p", "wb") as f:
+    p.dump(out, f, protocol=p.HIGHEST_PROTOCOL)
