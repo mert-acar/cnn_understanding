@@ -6,7 +6,6 @@ from yaml import full_load
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from shutil import rmtree, copyfile
-from torch.optim.lr_scheduler import StepLR
 
 from model import ConvNet
 from utils import create_dataloader
@@ -50,9 +49,6 @@ if __name__ == "__main__":
     model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
   )
   criterion = torch.nn.CrossEntropyLoss()
-  # scheduler = StepLR(
-  #   optimizer, step_size=config["scheduler_step_size"], gamma=config["scheduler_gamma"]
-  # )
 
   group_lasso_coef = config["group_lasso_coef"]
 
@@ -96,7 +92,6 @@ if __name__ == "__main__":
       metrics["Loss"][phase].append(running_error)
       metrics["Accuracy"][phase].append(running_accuracy)
       if phase == "test":
-        # scheduler.step()
         if running_error < best_error:
           best_error = running_error
           best_epoch = epoch
@@ -116,7 +111,7 @@ if __name__ == "__main__":
   h, m = divmod(m, 60)
   print(f"Training took {int(h):d} hours {int(m):d} minutes {s:.2f} seconds.")
 
-  fig, axs = plt.subplots(1, len(metrics), tight_layout=True, figsize=(10,5))
+  fig, axs = plt.subplots(1, len(metrics), tight_layout=True, figsize=(10, 5))
   epochs = list(range(1, epoch + 2))
   for i, (metric, arr) in enumerate(metrics.items()):
     for phase, val in arr.items():

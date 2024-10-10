@@ -236,8 +236,7 @@ def get_cca_similarity(
   sigmaxy /= np.sqrt(xmax * ymax)
   sigmayx /= np.sqrt(xmax * ymax)
 
-  ([u, s, v], invsqrt_xx, invsqrt_yy, x_idxs,
-   y_idxs) = compute_ccas(sigmaxx, sigmaxy, sigmayx, sigmayy, epsilon=epsilon, verbose=verbose)
+  ([u, s, v], invsqrt_xx, invsqrt_yy, x_idxs, y_idxs) = compute_ccas(sigmaxx, sigmaxy, sigmayx, sigmayy, epsilon=epsilon, verbose=verbose)
 
   # if x_idxs or y_idxs is all false, return_dict has zero entries
   if (not np.any(x_idxs)) or (not np.any(y_idxs)):
@@ -338,7 +337,7 @@ def robust_cca_similarity(acts1, acts2, threshold=0.98, epsilon=1e-6, compute_di
   for trial in range(num_cca_trials):
     try:
       return_dict = get_cca_similarity(acts1, acts2, threshold, compute_dirns)
-    except np.LinAlgError:
+    except np.linalg.LinAlgError:
       acts1 = acts1 * 1e-1 + np.random.normal(size=acts1.shape) * epsilon
       acts2 = acts2 * 1e-1 + np.random.normal(size=acts1.shape) * epsilon
       if trial + 1 == num_cca_trials:
