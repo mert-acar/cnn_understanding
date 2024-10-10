@@ -7,6 +7,5 @@ data/
 logs/
 venv/
 figures/
-scripts/
 .env
 pyproject.toml
