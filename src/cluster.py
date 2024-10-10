@@ -64,5 +64,4 @@ def performance_scores(data, cluster_labels, labels):
     "v_measure": metrics.v_measure_score(labels, cluster_labels),
     "mutual_information": metrics.adjusted_mutual_info_score(labels, cluster_labels),
     "num_clusters": len(np.unique(cluster_labels[cluster_labels != -1])),
-    "n_noisy_samples": 100 * sum(cluster_labels == -1) / len(cluster_labels)
   }

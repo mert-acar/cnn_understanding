@@ -10,23 +10,8 @@ if __name__ == "__main__":
   # layers = [f"features.{i}" for i in range(9)] + ["pool"]
   experiment_path = "../logs/resnet18_run1/activations/{layer}/act_epoch_{epoch}.mat"
   layers = [
-    "conv1",
-    "layer1.0.conv1",
-    "layer1.0.conv2",
-    "layer1.1.conv1",
-    "layer1.1.conv2",
-    "layer2.0.conv1",
-    "layer2.0.conv2",
-    "layer2.1.conv1",
-    "layer2.1.conv2",
-    "layer3.0.conv1",
-    "layer3.0.conv2",
-    "layer3.1.conv1",
-    "layer3.1.conv2",
-    "layer4.0.conv1",
-    "layer4.0.conv2",
-    "layer4.1.conv1",
-    "layer4.1.conv2",
+    "conv1", "layer1.0", "layer1.1", "layer2.0", "layer2.1", "layer3.0", "layer3.1", "layer4.0",
+    "layer4.1"
   ]
   epoch = 34
 

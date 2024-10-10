@@ -8,5 +8,4 @@ logs/
 venv/
 figures/
 .env
-pyproject.toml
 scripts/data
