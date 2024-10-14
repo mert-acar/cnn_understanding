@@ -49,7 +49,7 @@ def main(experiment_path, checkpoint_num=3, *hook_targets):
     model = models.resnet18(weights="DEFAULT")
     model.conv1 = torch.nn.Conv2d(1, 64, 7, 2, 3, bias=False)
     model.fc = torch.nn.Linear(512, 10, bias=True)
-    model = model.to(device) 
+    model = model.to(device)
 
   state = torch.load(
     os.path.join(experiment_path, "checkpoints", f"checkpoint_{checkpoint_num}.pt"),

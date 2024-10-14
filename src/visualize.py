@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 
 def vis2d(activations):
-  _, axs = plt.subplots(8, 8, figsize=(11, 10), tight_layout=True)
+  _, axs = plt.subplots(2, 4, figsize=(11, 10), tight_layout=True)
   for i, ax in enumerate(axs.ravel()):
     ax.imshow(activations[i], cmap='gray')
     ax.axis(False)
@@ -55,13 +55,14 @@ def vis(embedded, clusters, labels):
   plt.show()
 
 
-def main(mode, exp_file, variable_name, lbl, threshold=0.1):
+def main(mode, exp_file, lbl, threshold=0.1):
   inp_path = Path(exp_file)
-  data = loadmat(inp_path, variable_names=[variable_name, "labels"])
-  activations = data[variable_name]
+  data = loadmat(inp_path, variable_names=["activations", "labels"])
+  activations = data["activations"]
   labels = data["labels"][0]
   activations = activations[labels == lbl][0]
-  activations[np.sum(np.abs(activations), axis=(1, 2)) < threshold] = 0
+  activations[np.abs(activations) < threshold] = 0
+  print((activations == 0).sum())
   print(f"[INFO] Plotting a random activation for the label {lbl}")
   if mode == '2d':
     vis2d(activations)

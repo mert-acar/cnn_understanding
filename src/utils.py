@@ -3,7 +3,6 @@ import os
 import numpy as np
 import pandas as pd
 from glob import glob
-from sklearn import metrics
 from scipy.io import loadmat
 from kneed import KneeLocator
 from dim_reduction import svd_reduction
@@ -12,7 +11,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, Normalize
 
 
-def normalize(x, axis=1, eps=1e-12):
+def normalize_cols(x, axis=1, eps=1e-12):
   norm = np.linalg.norm(x, axis=axis, keepdims=True)
   return x / (norm + eps)
 
@@ -80,15 +79,28 @@ def find_non_zero_idx(data, beta=0.95):
   return non_zero_idx
 
 
-def read_to_cluster(file_path, svd_dim=86, threshold=None, norm=True):
+def read_to_cluster(file_path, reshape="avg", norm=True, svd_dim=None, threshold=0.98):
   data = loadmat(file_path)
+  # Ground truth labels of shape [N]
   y = data["labels"][0]
+  # Layer activations of shape [N, C, H, W]
   X = data["activations"]
-  if X.sum() == 0:
-    return None, y
-  X = X.reshape(X.shape[0], -1)
-  # normalize the columns to length 1 -> project the manifold onto a hyper-sphere
+
+  if reshape == "avg":
+    # [N, C, H, W] -> [N, C]
+    # where the spatial dimensions are averaged out
+    X = X.mean((-2, -1))
+  elif reshape == "flatten":
+    # [N, C, H, W] -> [N, C*H*W]
+    X = X.reshape(X.shape[0], -1)
+  else:
+    raise ValueError("'reshape' argument has to be one of 'avg' or 'flatten'")
+
   if norm:
-    X = normalize(X)
+    # Normalize between [-1, 1]
+    X = X / np.abs(X).max()
+
+  # Center the data and reduce dimensions using SVD
   X = svd_reduction(X - X.mean(0), n_components=svd_dim, threshold=threshold)
+
   return X, y

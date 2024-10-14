@@ -36,7 +36,7 @@ def cluster_matrix_to_df(matrices, titles):
   return pd.DataFrame(col)
 
 
-def parameter_search(data, labels, algo, params, optimizer_over="silhouette", max=True):
+def parameter_search(data, labels, algo, params, optimize_over="silhouette", max=True):
   best = None
   comparator = (lambda x, y: x > y) if max else (lambda x, y: x < y)
   for param in ParameterGrid(params):
@@ -45,7 +45,7 @@ def parameter_search(data, labels, algo, params, optimizer_over="silhouette", ma
       scores = performance_scores(data, cluster_labels, labels)
     except ValueError:
       continue
-    score = scores[optimizer_over]
+    score = scores[optimize_over]
     if best is None or comparator(score, best):
       best = score
       best_scores = scores
