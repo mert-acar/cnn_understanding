@@ -1,27 +1,26 @@
-import pickle as p
 import numpy as np
-import matplotlib.pyplot as plt
+from pprint import pprint
+from cluster import parameter_search
+from sklearn import cluster
+from scipy.io import loadmat
+from dim_reduction import svd_reduction
 
 if __name__ == "__main__":
-  experiment_path = "../logs/customnet_run2/activations/{layer}/act_epoch_{epoch}.mat"
-  layers = [f"features.{i}" for i in range(0, 9, 2)] + ["pool"]
-  output_path = "./data/simple_flat_e{epoch}.p"
-  epochs = [33, 17, 1]
+  experiment_path = "../logs/customnet_run2/new_act/features.{idx}_epoch_33.mat"
+  data = loadmat(experiment_path.format(idx=0))
+  num_points_per_sample = data["input"].shape[1]
+  inp_dim = data["input"].shape[-1]
+  labels = np.repeat(data["labels"][0], num_points_per_sample)
+  inp = data["input"].reshape(-1, inp_dim)
+  # out_dim = data["output"].shape[-1]
+  # out = data["output"].reshape(-1, out_dim)
+  del data
 
-  # _, axs = plt.subplots(1, 3, tight_layout=True, figsize=(15, 5))
-  for epoch in epochs:
-    with open(output_path.format(epoch=epoch), "rb") as f:
-      cluster_data = p.load(f)
-    l = []
-    for layer in layers:
-      X, y = cluster_data[layer]["data"]
-      cluster_labels = cluster_data[layer]["cluster_labels"]
-      l.append(len(set(cluster_labels)))
-    plt.plot(layers, l, label=f"Epoch {epoch}")
-  plt.grid(True)
-  plt.legend()
-  plt.xlabel("Layers")
-  plt.title("Num Clusters")
-  plt.savefig(f"./data/flat_n_clusters.png", bbox_inches='tight')
-  plt.clf()
-  plt.close()
+  metric = "calinski_harabasz_score"
+  inp = inp / np.abs(inp).max()
+  inp = svd_reduction(inp - inp.mean(0), n_components=None, threshold=0.98)
+  params = {"n_clusters": [None], "distance_threshold": [i  for i in np.linspace(2, 30, 10)]}
+  cluster_labels, best_params, scores = parameter_search(
+    inp, labels, cluster.AgglomerativeClustering, params, optimize_over=metric
+  )
+  pprint(scores)

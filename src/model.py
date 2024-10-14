@@ -1,4 +1,7 @@
+import os
+import torch
 import torch.nn as nn
+from yaml import full_load
 
 
 def conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0):
@@ -37,3 +40,16 @@ class ConvNet(nn.Module):
       x = self.pool(x)
     x = self.flat(x)
     return self.classifier(x)
+
+
+def load_model(experiment_path, checkpoint_number):
+  with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
+    config = full_load(f)["model_config"]
+  model = ConvNet(config)
+  state = torch.load(
+    os.path.join(experiment_path, "checkpoints", f"checkpoint_{checkpoint_number}.pt"),
+    map_location=torch.device("cpu"),
+    weights_only=True
+  )
+  model.load_state_dict(state)
+  return model
