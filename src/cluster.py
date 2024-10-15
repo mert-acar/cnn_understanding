@@ -1,8 +1,19 @@
 import numpy as np
-import pandas as pd
 from sklearn import metrics
 from scipy.optimize import linear_sum_assignment
 from sklearn.model_selection import ParameterGrid
+
+
+def select_random_samples(labels, num_samples_per_label):
+  unique_labels = np.unique(labels)
+  selected_indices = []
+  for label in unique_labels:
+    indices = np.where(labels == label)[0]
+    if len(indices) < num_samples_per_label:
+      raise ValueError(f"Not enough samples for label {label}. Only {len(indices)} available.")
+    selected = np.random.choice(indices, num_samples_per_label, replace=False)
+    selected_indices.extend(selected)
+  return np.array(selected_indices)
 
 
 def map_clusters(label_a, labels_b):
@@ -20,20 +31,6 @@ def map_clusters(label_a, labels_b):
     cluster_to_label_map[cluster] = mapped_label
   new_cluster_labels = np.array([cluster_to_label_map[cluster] for cluster in label_a])
   return new_cluster_labels, cluster_to_label_map
-
-
-def cluster_matrix_to_df(matrices, titles):
-  col = []
-  for mat, title in zip(matrices, titles):
-    b = np.full((13, 11), "").astype(object)
-    b[1, 1] = title
-    b[2, 0] = "label"
-    b[2, 1:] = np.linspace(0, 9, 10, dtype=int)
-    b[3:, 0] = np.linspace(0, 9, 10, dtype=int)
-    b[3:, 1:] = mat
-    col.append(b)
-  col = np.vstack(col)
-  return pd.DataFrame(col)
 
 
 def parameter_search(data, labels, algo, params, optimize_over="silhouette", max=True):
@@ -65,3 +62,31 @@ def performance_scores(data, cluster_labels, labels):
     "mutual_information": metrics.adjusted_mutual_info_score(labels, cluster_labels),
     "num_clusters": len(np.unique(cluster_labels[cluster_labels != -1])),
   }
+
+
+if __name__ == "__main__":
+  from sklearn import cluster
+  from scipy.io import loadmat
+  from scipy.spatial.distance import cdist
+
+  vars = ["features.8_input", "features.8_output"]
+  data = loadmat("../logs/customnet_run2/activations/patches_epoch_33.mat", variable_names=vars)
+  labels = loadmat("../data/labels.mat")["labels"][0]
+  metric = "calinski_harabasz_score"
+
+  d = data[vars[1]]
+  print(f"Data shape: {d.shape}")
+  # labels = np.repeat(labels, d.shape[1])
+  d = d.reshape(-1, d.shape[-1])
+  print(f"Aggregated shape: {d.shape}")
+  # d = d / np.abs(d).max()
+  # cluster_labels = cluster.AgglomerativeClustering(n_clusters=10).fit(d).labels_
+  # scores = performance_scores(d, cluster_labels, labels)
+  # dist = cdist(d, d).mean()
+  # params = {"n_clusters": [None], "distance_threshold": [i * dist for i in np.linspace(2, 30, 20)]}
+  # cluster_labels, best_param, scores = parameter_search(
+  #   d, labels, cluster.AgglomerativeClustering, params, optimize_over=metric
+  # )
+
+  # for key, score in scores.items():
+  #   print(f"{key}: {score:.3f}")

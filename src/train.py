@@ -6,10 +6,20 @@ from yaml import full_load
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from shutil import rmtree, copyfile
+from torchvision.datasets import MNIST
+from torch.utils.data import DataLoader
+from torchvision.transforms import Compose, ToTensor, Normalize
 
 from model import ConvNet
-from utils import create_dataloader
 
+def create_dataloader(data_root="../data/", batch_size=1, num_workers=4, split="train", **kwargs):
+  transform = Compose([ToTensor(), Normalize((0.1307, ), (0.3081, ))])
+  return DataLoader(
+    MNIST(root=data_root, download=True, train=split == 'train', transform=transform),
+    batch_size=batch_size,
+    num_workers=num_workers,
+    shuffle=split == 'train'
+  )
 
 def group_lasso_penalty():
   penalty = 0

@@ -39,7 +39,6 @@ def test(model, dataloader, criterion, device):
       running_accuracy += acc
       loss = criterion(output, target)
       running_error += loss.item()
-
   running_accuracy = running_accuracy / len(dataloader)
   running_error = running_error / len(dataloader)
   return {"loss": running_error, "accuracy": running_accuracy}

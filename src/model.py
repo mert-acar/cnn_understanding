@@ -2,6 +2,7 @@ import os
 import torch
 import torch.nn as nn
 from yaml import full_load
+from torchvision import models
 
 
 def conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0):
@@ -44,8 +45,15 @@ class ConvNet(nn.Module):
 
 def load_model(experiment_path, checkpoint_number):
   with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
-    config = full_load(f)["model_config"]
-  model = ConvNet(config)
+    config = full_load(f)
+
+  if "model_config" in config:
+    model = ConvNet(config["model_config"])
+  else:
+    model = models.resnet18(weights="DEFAULT")
+    model.conv1 = nn.Conv2d(1, 64, 7, 2, 3, bias=False)
+    model.fc = nn.Linear(512, 10, bias=True)
+
   state = torch.load(
     os.path.join(experiment_path, "checkpoints", f"checkpoint_{checkpoint_number}.pt"),
     map_location=torch.device("cpu"),
