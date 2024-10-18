@@ -6,7 +6,7 @@ from torchvision import models
 
 
 def conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0):
-  return [nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding), nn.ReLU(inplace=True)]
+  return [nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding), nn.ReLU(inplace=False)]
 
 
 class ConvNet(nn.Module):

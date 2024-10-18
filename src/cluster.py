@@ -33,7 +33,7 @@ def map_clusters(label_a, labels_b):
   return new_cluster_labels, cluster_to_label_map
 
 
-def parameter_search(data, labels, algo, params, optimize_over="silhouette", max=True):
+def parameter_search(data, labels, algo, params, optimize_over="calinski_harabasz_score", max=True):
   best = None
   comparator = (lambda x, y: x > y) if max else (lambda x, y: x < y)
   for param in ParameterGrid(params):
@@ -71,22 +71,33 @@ if __name__ == "__main__":
 
   vars = ["features.8_input", "features.8_output"]
   data = loadmat("../logs/customnet_run2/activations/patches_epoch_33.mat", variable_names=vars)
-  labels = loadmat("../data/labels.mat")["labels"][0]
   metric = "calinski_harabasz_score"
+  i = 1
+  labels = loadmat("../data/labels.mat")["labels"][0]
+  d = data[vars[i]]
 
-  d = data[vars[1]]
+  n = 30
+  idx = select_random_samples(labels, n)
+  d = d[idx]
+  labels = labels[idx]
+
+  print(f"{vars[i]} with n = {n}")
+
   print(f"Data shape: {d.shape}")
-  # labels = np.repeat(labels, d.shape[1])
+  labels = np.repeat(labels, d.shape[1])
   d = d.reshape(-1, d.shape[-1])
   print(f"Aggregated shape: {d.shape}")
-  # d = d / np.abs(d).max()
-  # cluster_labels = cluster.AgglomerativeClustering(n_clusters=10).fit(d).labels_
-  # scores = performance_scores(d, cluster_labels, labels)
-  # dist = cdist(d, d).mean()
-  # params = {"n_clusters": [None], "distance_threshold": [i * dist for i in np.linspace(2, 30, 20)]}
-  # cluster_labels, best_param, scores = parameter_search(
-  #   d, labels, cluster.AgglomerativeClustering, params, optimize_over=metric
-  # )
+  d = d / np.abs(d).max()
 
-  # for key, score in scores.items():
-  #   print(f"{key}: {score:.3f}")
+  cluster_labels = cluster.AgglomerativeClustering(n_clusters=10).fit(d).labels_
+  scores = performance_scores(d, cluster_labels, labels)
+  dist = cdist(d, d).mean()
+
+  params = {"n_clusters": [None], "distance_threshold": [i * dist for i in np.linspace(0.1, 5, 20)]}
+  cluster_labels, best_param, scores = parameter_search(
+    d, labels, cluster.AgglomerativeClustering, params, optimize_over=metric
+  )
+
+  print("-" * 10)
+  for key, score in scores.items():
+    print(f"{key}: {score:.3f}")
