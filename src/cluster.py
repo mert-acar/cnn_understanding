@@ -1,10 +1,11 @@
 import numpy as np
 from sklearn import metrics
+from typing import Callable, Tuple
 from scipy.optimize import linear_sum_assignment
 from sklearn.model_selection import ParameterGrid
 
 
-def select_random_samples(labels, num_samples_per_label):
+def select_random_samples(labels: np.ndarray, num_samples_per_label: int) -> np.ndarray:
   unique_labels = np.unique(labels)
   selected_indices = []
   for label in unique_labels:
@@ -16,7 +17,7 @@ def select_random_samples(labels, num_samples_per_label):
   return np.array(selected_indices)
 
 
-def map_clusters(label_a, labels_b):
+def map_clusters(label_a: np.ndarray, labels_b: np.ndarray) -> Tuple[np.ndarray, dict[int, int]]:
   unique_clusters = np.unique(label_a)
   unique_true_labels = np.unique(labels_b)
   cost_matrix = np.zeros((len(unique_clusters), len(unique_true_labels)))
@@ -33,7 +34,14 @@ def map_clusters(label_a, labels_b):
   return new_cluster_labels, cluster_to_label_map
 
 
-def parameter_search(data, labels, algo, params, optimize_over="calinski_harabasz_score", max=True):
+def parameter_search(
+  data: np.ndarray,
+  labels: np.ndarray,
+  algo: Callable,
+  params: dict,
+  optimize_over: str = "calinski_harabasz_score",
+  max: bool = True
+) -> Tuple[np.ndarray, dict, dict]:
   best = None
   comparator = (lambda x, y: x > y) if max else (lambda x, y: x < y)
   for param in ParameterGrid(params):
@@ -51,7 +59,7 @@ def parameter_search(data, labels, algo, params, optimize_over="calinski_harabas
   return best_labels, best_params, best_scores
 
 
-def performance_scores(data, cluster_labels, labels):
+def performance_scores(data: np.ndarray, cluster_labels: np.ndarray, labels: np.ndarray) -> dict:
   return {
     "silhouette": metrics.silhouette_score(data, cluster_labels),
     "calinski_harabasz_score": metrics.calinski_harabasz_score(data, cluster_labels),

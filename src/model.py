@@ -1,16 +1,22 @@
 import os
+from typing import List
 import torch
 import torch.nn as nn
 from yaml import full_load
 from torchvision import models
 
 
-def conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0):
-  return [nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding), nn.ReLU(inplace=False)]
+def conv2d(
+  in_channels: int, out_channels: int, kernel_size: int, stride: int = 1, padding: int = 0
+) -> List[torch.nn.Module]:
+  return [
+    nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding),
+    nn.ReLU(inplace=False)
+  ]
 
 
 class ConvNet(nn.Module):
-  def __init__(self, config):
+  def __init__(self, config: dict):
     super(ConvNet, self).__init__()
     layers = []
     for c in config["features"]:
@@ -35,7 +41,7 @@ class ConvNet(nn.Module):
     self.flat = nn.Flatten()
     self.classifier = nn.Linear(*config["classifier"])
 
-  def forward(self, x):
+  def forward(self, x: torch.Tensor) -> torch.Tensor:
     x = self.features(x)
     if self.pool is not None:
       x = self.pool(x)
@@ -43,7 +49,7 @@ class ConvNet(nn.Module):
     return self.classifier(x)
 
 
-def load_model(experiment_path, checkpoint_number):
+def load_model(experiment_path: str, checkpoint_number: int) -> torch.nn.Module:
   with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
     config = full_load(f)
 

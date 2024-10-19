@@ -1,10 +1,5 @@
 [tool.pyright]  
-venvPath = "/opt/homebrew/Caskroom/miniconda/base/envs"
+extends = "../../../.config/pyright/pyrightconfig.json"
 venv = "uiuc"
-pythonPath = "/opt/homebrew/Caskroom/miniconda/base/envs/uiuc/bin/python3"
 include = ["src"]
-pythonVersion = 3.11  
-autoSearchPaths = true
-diagnosticMode = "workspace"
-typeCheckingMode = "off"
-useLibraryCodeForTypes = false
+pythonVersion = 3.11

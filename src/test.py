@@ -4,10 +4,11 @@ from tqdm import tqdm
 from model import ConvNet
 from yaml import full_load
 import torch.nn.functional as F
-from utils import create_dataloader
+from train import create_dataloader
+from torch.utils.data import DataLoader
 
 
-def main(experiment_path, checkpoint_num=1):
+def main(experiment_path: str, checkpoint_num: int = 1):
   with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
     config = full_load(f)
 
@@ -26,7 +27,9 @@ def main(experiment_path, checkpoint_num=1):
   print(f"Accuracy: {results['accuracy'] * 100:.3f}% | Loss: {results['loss']:.3f}")
 
 
-def test(model, dataloader, criterion, device):
+def test(
+  model: torch.nn.Module, dataloader: DataLoader, criterion: torch.nn.Module, device: torch.device
+) -> dict[str, float]:
   running_accuracy = 0
   running_error = 0
   pbar = tqdm(dataloader, total=len(dataloader), ncols=94)

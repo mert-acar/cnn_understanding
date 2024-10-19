@@ -1,8 +1,13 @@
 import numpy as np
+from typing import Union
 from sklearn.decomposition import PCA
 
 
-def svd_reduction(activations, n_components=10, threshold=None):
+def svd_reduction(
+  activations: np.ndarray,
+  n_components: Union[None, int] = 10,
+  threshold: Union[None, float] = None
+) -> np.ndarray:
   assert (n_components
           is None) != (threshold is None), "Either rank or threshold should be specified"
   u, s, _ = np.linalg.svd(activations, full_matrices=False)
@@ -20,7 +25,11 @@ def svd_reduction(activations, n_components=10, threshold=None):
   return recon
 
 
-def pca_reduction(activations, n_components=5, threshold=None):
+def pca_reduction(
+  activations: np.ndarray,
+  n_components: Union[None, int] = 10,
+  threshold: Union[None, float] = None
+) -> np.ndarray:
   assert (n_components
           is None) != (threshold is None), "Either n_components or threshold should be specified"
 

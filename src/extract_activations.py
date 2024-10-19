@@ -1,20 +1,22 @@
 import torch
 from tqdm import tqdm
+from typing import Callable
 from scipy.io import savemat
 import torch.nn.functional as F
 from collections import defaultdict
+from torch.utils.data import DataLoader
 
 from model import load_model
 from train import create_dataloader
 
 
-def get_patches(activations, window_size, stride, padding=0):
+def get_patches(activations: torch.Tensor, window_size: int, stride: int, padding: int = 0) -> torch.Tensor:
   if padding != 0:
     activations = F.pad(activations, [padding] * 4)
   return F.unfold(activations, kernel_size=(window_size, window_size), stride=stride)
 
 
-def forward_pass(model, dataloader):
+def forward_pass(model: torch.nn.Module, dataloader: DataLoader):
   pbar = tqdm(dataloader, total=len(dataloader), ncols=94)
   with torch.inference_mode():
     for data, target in pbar:
@@ -22,24 +24,39 @@ def forward_pass(model, dataloader):
       _ = model(data)
 
 
-def hook_gen(key, layer=None):
+def hook_gen(key: str, layer=None) -> Callable:
   if layer is None:
 
-    def hook_fn(model, input, output):
-      hooked_activations[key].append(output.detach().cpu())
+    def hook_fn_act(_, input, output):
+      if key in hooked_activations:
+        hooked_activations[key] = torch.cat((hooked_activations[key], output.detach().cpu()), 0)
+      else:
+        hooked_activations[key] = output.detach().cpu()
 
-    return hook_fn
+    return hook_fn_act
   else:
     if isinstance(layer, torch.nn.Conv2d):
-      k, s, p = layer.kernel_size[0], layer.stride[0], layer.padding[0]
+      k, s, p = int(layer.kernel_size[0]), int(layer.stride[0]), int(layer.padding[0])
 
-      def hook_fn(model, input, output):
+      def hook_fn_patch(_, input, output):
         inp_patches = get_patches(input[0], k, s, p).transpose(1, 2)
         out_patches = output.reshape(output.shape[0], output.shape[1], -1).transpose(1, 2)
-        hooked_activations[key + "_input"].append(inp_patches.detach().cpu())
-        hooked_activations[key + "_output"].append(out_patches.detach().cpu())
 
-      return hook_fn
+        if key + "_input" in hooked_activations:
+          hooked_activations[key + "_input"] = torch.cat(
+            (hooked_activations[key + "_input"], inp_patches.detach().cpu()), 0
+          )
+        else:
+          hooked_activations[key + "_input"] = inp_patches.detach().cpu()
+
+        if key + "_output" in hooked_activations:
+          hooked_activations[key + "_output"] = torch.cat(
+            (hooked_activations[key + "_output"], out_patches.detach().cpu()), 0
+          )
+        else:
+          hooked_activations[key + "_output"] = out_patches.detach().cpu()
+
+      return hook_fn_patch
     else:
       raise NotImplementedError(f"Hook function for {layer} is not implemented")
 
@@ -54,7 +71,7 @@ if __name__ == "__main__":
   patches = True
   ckpts = 33
 
-  hooked_activations = defaultdict(list)
+  hooked_activations = defaultdict(torch.Tensor)
 
   with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
     config = full_load(f)
@@ -83,8 +100,8 @@ if __name__ == "__main__":
   out_path = os.path.join(config["output_path"], "activations")
   os.makedirs(out_path, exist_ok=True)
 
-  for key in hooked_activations:
-    hooked_activations[key] = torch.cat(hooked_activations[key], 0)
+  # for key in hooked_activations:
+  #   hooked_activations[key] = torch.cat(hooked_activations[key], 0)
 
   savemat(
     os.path.join(out_path, f"{'patches' if patches else 'act'}_epoch_{ckpts}.mat"),

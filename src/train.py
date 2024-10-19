@@ -12,7 +12,14 @@ from torchvision.transforms import Compose, ToTensor, Normalize
 
 from model import ConvNet
 
-def create_dataloader(data_root="../data/", batch_size=1, num_workers=4, split="train", **kwargs):
+
+def create_dataloader(
+  data_root: str = "../data/",
+  batch_size: int = 1,
+  num_workers: int = 4,
+  split: str = "train",
+  **kwargs
+) -> DataLoader:
   transform = Compose([ToTensor(), Normalize((0.1307, ), (0.3081, ))])
   return DataLoader(
     MNIST(root=data_root, download=True, train=split == 'train', transform=transform),
@@ -20,6 +27,7 @@ def create_dataloader(data_root="../data/", batch_size=1, num_workers=4, split="
     num_workers=num_workers,
     shuffle=split == 'train'
   )
+
 
 def group_lasso_penalty():
   penalty = 0
