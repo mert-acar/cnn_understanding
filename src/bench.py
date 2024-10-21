@@ -1,56 +1,106 @@
 import os
-import pickle
+import pickle as p
 import numpy as np
-from pprint import pprint
-from sklearn import cluster
+from yaml import full_load
 from scipy.io import loadmat
-from cluster import parameter_search
-from dim_reduction import svd_reduction
-from scipy.spatial.distance import cdist
-from cluster import select_random_samples
+import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
   exp_dir = "../logs/customnet_run2/"
-  labels = loadmat("../data/labels.mat")["labels"][0]
   epoch = 33
-  out = {}
-  for i in range(0, 9, 2):
-    vars = [f"features.{i}_input", f"features.{i}_output"]
-    for var in vars:
-      data = loadmat(
-        os.path.join(exp_dir, "activations", f"patches_epoch_{epoch}.mat"),
-        variable_names=[var],
-      )
-      print(var)
-      x = data[var]
-      n = 24000 // (10 * x.shape[1])
-      print("num samples:", n)
-      idx = select_random_samples(labels, n)
-      x = x[idx]
-      l = labels[idx]
-      l = np.repeat(l, x.shape[1])
-      x = x.reshape(-1, x.shape[-1])
-      print(f"Activations: {x.shape}")
-      print(f"Labels: {l.shape}")
-      x = x - x.mean(0)
-      x = x / np.abs(x).max()
-      d = cdist(x, x).mean()
-      x = svd_reduction(x, n_components=None, threshold=0.98)
-      print(f"After SVD: {x.shape}")
-      params = {
-        "n_clusters": [None],
-        "distance_threshold": [k * d for k in np.linspace(0.2, 20, 20)],
-      }
-      clusters, p, scores = parameter_search(x, l, cluster.AgglomerativeClustering, params)
-      pprint(p)
-      pprint(scores)
-      print()
-      out[var] = {
-        "cluster_labels": clusters,
-        "params": p,
-        "scores": scores,
-        "idx": idx,
-      }
 
-  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}.p"), "wb") as f:
-    pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)
+  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}.p"), "rb") as f:
+    clusters = p.load(f)
+
+  with open(os.path.join(exp_dir, "ExperimentSummary.yaml"), "r") as f:
+    model_config = [x[1:] for x in full_load(f)["model_config"]["features"]]
+
+  feat_idx = 0
+  H = 28
+  fi, fo, k, s, p = model_config[feat_idx // 2]
+
+  points = loadmat(
+    os.path.join(exp_dir, "activations", f"patches_epoch_{epoch}.mat"),
+    variable_names=[f"features.{feat_idx}_input", f"features.{feat_idx}_output"]
+  )
+  idx = clusters[f"features.{feat_idx}_input"]["idx"]
+  data = points[f"features.{feat_idx}_input"][idx]
+  N, D, C = data.shape
+  h = (H + 2 * p - k) // s + 1
+
+  # positions_y = np.arange(0, H - k + 1, s)
+  # positions_x = np.arange(0, H - k + 1, s)
+  # grid_y, grid_x = np.meshgrid(positions_y, positions_x, indexing='ij')
+  # center_offset = (k - 1) // 2
+  # center_y = grid_y + center_offset
+  # center_x = grid_x + center_offset
+  # patch_centers = np.stack((center_y.flatten(), center_x.flatten()), axis=1)
+
+  # cluster_labels = clusters[f"features.{feat_idx}_input"]["cluster_labels"]
+  # unique_clusters = np.unique(cluster_labels)
+
+  # cluster_labels = cluster_labels.reshape(N, D)
+  # inp_plots = np.zeros((10, len(unique_clusters), fi, H, H))
+  # for i in range(10):
+  #   labels = cluster_labels[i * 16 : (i + 1) * 16].flatten()
+  #   for j, lbl in enumerate(labels):
+  #     k = j % (h * h)
+  #     y, x = patch_centers[k]
+  #     inp_plots[i, lbl, :, y, x] = inp_plots[i, lbl, :, y, x] + 1
+  # _, axs = plt.subplots(10, len(unique_clusters), tight_layout=True)
+  # for row in range(10):
+  #   for col in range(len(unique_clusters)):
+  #     axs[row, col].imshow(inp_plots[row, col].squeeze(), cmap='gray')
+  #     axs[row, col].axis(False)
+  #     if row == 0:
+  #       axs[row, col].set_title(f"cluster {col + 1}")
+  # plt.show()
+
+  # inp_plots = np.zeros((len(unique_clusters), fi, H, H))
+  # for i, lbl in enumerate(cluster_labels):
+  #   j = i % (h * h)
+  #   y, x = patch_centers[j]
+  #   inp_plots[lbl, :, y, x] = inp_plots[lbl, :, y, x] + 1
+  # _, axs = plt.subplots(1, len(unique_clusters), tight_layout=True)
+  # for i, ax in enumerate(axs):
+  #   ax.imshow(inp_plots[i].squeeze(), cmap='gray')
+  #   ax.axis(False)
+  #   ax.set_title(f"cluster {i + 1}")
+  # plt.show()
+
+  # cluster_labels = clusters[f"features.{feat_idx}_output"]["cluster_labels"]
+  # unique_clusters = np.unique(cluster_labels)
+  #
+  # cluster_labels = cluster_labels.reshape(N, D)
+  # out_plots = np.zeros((10, len(unique_clusters), fi, h, h))
+  # for i in range(10):
+  #   labels = cluster_labels[i * 16 : (i + 1) * 16].flatten()
+  #   for j, lbl in enumerate(labels):
+  #     k = j % (h * h)
+  #     y, x = k // h, k % h
+  #     out_plots[i, lbl, :, y, x] = out_plots[i, lbl, :, y, x] + 1
+  # _, axs = plt.subplots(10, len(unique_clusters), tight_layout=True)
+  # for row in range(10):
+  #   for col in range(len(unique_clusters)):
+  #     axs[row, col].imshow(out_plots[row, col].squeeze(), cmap='gray')
+  #     axs[row, col].axis(False)
+  #     if row == 0:
+  #       axs[row, col].set_title(f"cluster {col + 1}")
+  # plt.show()
+  
+  # out_plots = np.zeros((len(unique_clusters), fi, h, h))
+  # for i, lbl in enumerate(cluster_labels):
+  #   j = i % (h * h)
+  #   y, x = j // h, j % h
+  #   out_plots[lbl, :, y, x] = out_plots[lbl, :, y, x] + 1
+  # _, axs = plt.subplots(2, 6, tight_layout=True)
+  # for i in range(6):
+  #   axs[0, i].imshow(out_plots[i].squeeze(), cmap='gray')
+  #   axs[0, i].axis(False)
+  #   axs[0, i].set_title(f"cluster {i + 1}")
+  # for i in range(5):
+  #   axs[1, i].imshow(out_plots[6 + i].squeeze(), cmap='gray')
+  #   axs[1, i].axis(False)
+  #   axs[1, i].set_title(f"cluster {i + 7}")
+  # axs[1, -1].axis("off")
+  # plt.show()

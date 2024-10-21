@@ -1,5 +1,7 @@
 import numpy as np
+from tqdm import tqdm
 from sklearn import metrics
+from sklearn import cluster
 from typing import Callable, Tuple
 from scipy.optimize import linear_sum_assignment
 from sklearn.model_selection import ParameterGrid
@@ -37,14 +39,14 @@ def map_clusters(label_a: np.ndarray, labels_b: np.ndarray) -> Tuple[np.ndarray,
 def parameter_search(
   data: np.ndarray,
   labels: np.ndarray,
-  algo: Callable,
   params: dict,
+  algo: Callable = cluster.AgglomerativeClustering,
   optimize_over: str = "calinski_harabasz_score",
   max: bool = True
 ) -> Tuple[np.ndarray, dict, dict]:
   best = None
   comparator = (lambda x, y: x > y) if max else (lambda x, y: x < y)
-  for param in ParameterGrid(params):
+  for param in tqdm(ParameterGrid(params), desc="Parameter Searching...", ncols=94):
     try:
       cluster_labels = algo(**param).fit(data).labels_
       scores = performance_scores(data, cluster_labels, labels)
@@ -73,39 +75,54 @@ def performance_scores(data: np.ndarray, cluster_labels: np.ndarray, labels: np.
 
 
 if __name__ == "__main__":
-  from sklearn import cluster
+  import os
+  import pickle
+  from pprint import pprint
   from scipy.io import loadmat
+  from dim_reduction import svd_reduction
   from scipy.spatial.distance import cdist
 
-  vars = ["features.8_input", "features.8_output"]
-  data = loadmat("../logs/customnet_run2/activations/patches_epoch_33.mat", variable_names=vars)
-  metric = "calinski_harabasz_score"
-  i = 1
+  exp_dir = "../logs/customnet_run2/"
   labels = loadmat("../data/labels.mat")["labels"][0]
-  d = data[vars[i]]
+  epoch = 33
+  out = {}
+  for i in range(0, 9, 2):
+    vars = [f"features.{i}_input", f"features.{i}_output"]
+    for var in vars:
+      data = loadmat(
+        os.path.join(exp_dir, "activations", f"patches_epoch_{epoch}.mat"),
+        variable_names=[var],
+      )
+      print(var)
+      x = data[var]
+      n = 24000 // (10 * x.shape[1])
+      print("num samples:", n)
+      idx = select_random_samples(labels, n)
+      x = x[idx]
+      l = labels[idx]
+      l = np.repeat(l, x.shape[1])
+      x = x.reshape(-1, x.shape[-1])
+      print(f"Activations: {x.shape}")
+      print(f"Labels: {l.shape}")
+      x = x - x.mean(0)
+      x = x / np.abs(x).max()
+      d = cdist(x, x).mean()
+      x, _ = svd_reduction(x, n_components=None, threshold=0.98)
+      print(f"After SVD: {x.shape}")
+      params = {
+        "n_clusters": [None],
+        "distance_threshold": [k * d for k in np.linspace(0.2, 20, 20)],
+      }
+      clusters, p, scores = parameter_search(x, l, params)
+      pprint(p)
+      pprint(scores)
+      print()
+      out[var] = {
+        "cluster_labels": clusters,
+        "params": p,
+        "scores": scores,
+        "idx": idx,
+      }
 
-  n = 30
-  idx = select_random_samples(labels, n)
-  d = d[idx]
-  labels = labels[idx]
-
-  print(f"{vars[i]} with n = {n}")
-
-  print(f"Data shape: {d.shape}")
-  labels = np.repeat(labels, d.shape[1])
-  d = d.reshape(-1, d.shape[-1])
-  print(f"Aggregated shape: {d.shape}")
-  d = d / np.abs(d).max()
-
-  cluster_labels = cluster.AgglomerativeClustering(n_clusters=10).fit(d).labels_
-  scores = performance_scores(d, cluster_labels, labels)
-  dist = cdist(d, d).mean()
-
-  params = {"n_clusters": [None], "distance_threshold": [i * dist for i in np.linspace(0.1, 5, 20)]}
-  cluster_labels, best_param, scores = parameter_search(
-    d, labels, cluster.AgglomerativeClustering, params, optimize_over=metric
-  )
-
-  print("-" * 10)
-  for key, score in scores.items():
-    print(f"{key}: {score:.3f}")
+  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}.p"), "wb") as f:
+    pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)

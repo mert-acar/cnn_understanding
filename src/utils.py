@@ -1,8 +1,9 @@
 import re
 import os
-from typing import List
+import math
 import numpy as np
 from glob import glob
+from typing import List
 from kneed import KneeLocator
 
 
@@ -29,3 +30,10 @@ def find_non_zero_idx(data: np.ndarray, beta: float = 0.95) -> np.ndarray:
   kn = KneeLocator(x, y, curve='convex', direction='decreasing').knee
   non_zero_idx = stat >= y[kn] * beta
   return non_zero_idx
+
+
+def closest_factors(n):
+  root = int(math.isqrt(n))  # integer square root
+  for i in range(root, 0, -1):
+    if n % i == 0:  # If i is a factor of n
+      return (i, n // i)  # Return the pair of factors
