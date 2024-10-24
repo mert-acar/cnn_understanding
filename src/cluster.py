@@ -50,6 +50,9 @@ def parameter_search(
     try:
       cluster_labels = algo(**param).fit(data).labels_
       scores = performance_scores(data, cluster_labels, labels)
+      print()
+      pprint(param)
+      pprint(scores)
     except ValueError:
       continue
     score = scores[optimize_over]
@@ -106,14 +109,15 @@ if __name__ == "__main__":
       print(f"Labels: {l.shape}")
       x = x - x.mean(0)
       x = x / np.abs(x).max()
-      d = cdist(x, x).mean()
-      x, _ = svd_reduction(x, n_components=None, threshold=0.98)
+      x = svd_reduction(x, n_components=None, threshold=0.98)
+      # d = cdist(x, x).mean()
       print(f"After SVD: {x.shape}")
       params = {
         "n_clusters": [None],
-        "distance_threshold": [k * d for k in np.linspace(0.2, 20, 20)],
+        "distance_threshold": [k for k in np.linspace(5, 200, 20)],
       }
       clusters, p, scores = parameter_search(x, l, params)
+      # p.update({"mean_l2_dist": d})
       pprint(p)
       pprint(scores)
       print()
@@ -124,5 +128,5 @@ if __name__ == "__main__":
         "idx": idx,
       }
 
-  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}.p"), "wb") as f:
+  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}_v2.p"), "wb") as f:
     pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)

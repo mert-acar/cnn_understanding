@@ -4,7 +4,12 @@ import math
 import numpy as np
 from glob import glob
 from typing import List
+from scipy.io import loadmat
 from kneed import KneeLocator
+
+
+def load_labels():
+  return loadmat("../data/labels.mat")["labels"][0]
 
 
 def normalize_cols(x: np.ndarray, axis: int = 1, eps: float = 1e-12) -> np.ndarray:
