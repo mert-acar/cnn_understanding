@@ -47,7 +47,7 @@ def parameter_search(
   best = None
   comparator = (lambda x, y: x > y) if max else (lambda x, y: x < y)
   best_iter = 0
-  for i, param in tqdm(enumerate(ParameterGrid(params)), desc="Parameter Searching...", ncols=94):
+  for i, param in tqdm(list(enumerate(ParameterGrid(params))), desc="Parameter Searching...", ncols=94):
     try:
       cluster_labels = algo(**param).fit(data).labels_
       scores = performance_scores(data, cluster_labels, labels)
