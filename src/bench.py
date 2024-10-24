@@ -9,14 +9,14 @@ if __name__ == "__main__":
   exp_dir = "../logs/customnet_run2/"
   epoch = 33
 
-  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}.p"), "rb") as f:
+  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}_v2.p"), "rb") as f:
     clusters = p.load(f)
 
   with open(os.path.join(exp_dir, "ExperimentSummary.yaml"), "r") as f:
     model_config = [x[1:] for x in full_load(f)["model_config"]["features"]]
 
-  feat_idx = 8
-  H = 6
+  feat_idx = 0
+  H = 28
   fi, fo, k, s, p = model_config[feat_idx // 2]
 
   points = loadmat(

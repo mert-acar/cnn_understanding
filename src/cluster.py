@@ -1,6 +1,5 @@
 import numpy as np
 from tqdm import tqdm
-from time import perf_counter
 from sklearn import metrics
 from sklearn import cluster
 from typing import Callable, Tuple
@@ -83,57 +82,50 @@ if __name__ == "__main__":
   import pickle
   from pprint import pprint
   from scipy.io import loadmat
-  from dim_reduction import svd_reduction
-  from scipy.spatial.distance import cdist
   from sklearn.preprocessing import StandardScaler
 
   exp_dir = "../logs/customnet_run2/"
   labels = loadmat("../data/labels.mat")["labels"][0]
   epoch = 33
   out = {}
-  for i in range(0, 9, 2):
-    vars = [f"features.{i}_input", f"features.{i}_output"]
-    for var in vars:
-      data = loadmat(
-        os.path.join(exp_dir, "activations", f"patches_epoch_{epoch}.mat"),
-        variable_names=[var],
-      )
-      print(var)
-      x = data[var]
-      n = 24000 // (10 * x.shape[1])
-      print("num samples:", n)
-      idx = select_random_samples(labels, n)
-      x = x[idx]
-      l = np.repeat(labels[idx], x.shape[1])
-      x = x.reshape(-1, x.shape[-1])
-      x = StandardScaler().fit_transform(x)
-      print(f"Activations: {x.shape}")
-      print(f"Labels: {l.shape}")
-      # x = x - x.mean(0)
-      # x = x / np.abs(x).max()
-      # tick = perf_counter()
-      # x = svd_reduction(x, n_components=None, threshold=0.98)
-      # print(f"SVD took: {perf_counter() - tick:.3f} seconds")
-      # print(f"After SVD: {x.shape}")
-      params = {
-        "n_clusters": list(range(2, 21)),
-        "affinity": ["nearest_neighbors"],
-        "n_jobs": [-1]
-        # "n_clusters": [None],
-        # "distance_threshold": [k for k in np.linspace(5, 10, 10)],
-      }
-      clusters, p, scores = parameter_search(
-        x, l, params, algo=cluster.SpectralClustering, optimize_over="silhouette"
-      )
-      pprint(p)
-      pprint(scores)
-      print()
-      out[var] = {
-        "cluster_labels": clusters,
-        "params": p,
-        "scores": scores,
-        # "idx": idx,
-      }
+  vars = [
+    "features.0_input",
+    "features.0_output",
+    "features.2_input",
+    "features.2_output",
+    "features.4_input",
+  ]
+  for var in vars:
+    data = loadmat(
+      os.path.join(exp_dir, "activations", f"patches_epoch_{epoch}.mat"),
+      variable_names=[var],
+    )
+    print(var)
+    x = data[var]
+    n = 24000 // (10 * x.shape[1])
+    print("num samples:", n)
+    idx = select_random_samples(labels, n)
+    x = x[idx]
+    l = np.repeat(labels[idx], x.shape[1])
+    x = x.reshape(-1, x.shape[-1])
+    x = StandardScaler().fit_transform(x)
+    print(f"Activations: {x.shape}")
+    print(f"Labels: {l.shape}")
+    params = {"n_clusters": list(range(8, 25)), "affinity": ["nearest_neighbors"], "n_jobs": [-1]}
+    clusters, p, scores = parameter_search(
+      x, l, params, algo=cluster.SpectralClustering, optimize_over="silhouette"
+    )
+    pprint(p)
+    pprint(scores)
+    print()
+    out[var] = {
+      "cluster_labels": clusters,
+      "params": p,
+      "scores": scores,
+      "idx": idx,
+    }
 
-  # with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}_v2.p"), "wb") as f:
-  #   pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)
+  with open(
+    os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}_spectral_part1.p"), "wb"
+  ) as f:
+    pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)
