@@ -61,6 +61,8 @@ def parameter_search(
       best_scores = scores
       best_labels = cluster_labels
       best_params = param
+    if scores["num_clusters"] == 2:
+      break
   return best_labels, best_params, best_scores
 
 
@@ -116,7 +118,7 @@ if __name__ == "__main__":
         "n_clusters": [None],
         "distance_threshold": [k for k in np.linspace(5, 200, 20)],
       }
-      clusters, p, scores = parameter_search(x, l, params)
+      clusters, p, scores = parameter_search(x, l, params, optimize_over="silhouette")
       # p.update({"mean_l2_dist": d})
       pprint(p)
       pprint(scores)
@@ -128,5 +130,5 @@ if __name__ == "__main__":
         "idx": idx,
       }
 
-  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}_v2.p"), "wb") as f:
+  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}_v3.p"), "wb") as f:
     pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)
