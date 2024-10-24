@@ -46,7 +46,8 @@ def parameter_search(
 ) -> Tuple[np.ndarray, dict, dict]:
   best = None
   comparator = (lambda x, y: x > y) if max else (lambda x, y: x < y)
-  for param in tqdm(ParameterGrid(params), desc="Parameter Searching...", ncols=94):
+  best_iter = 0
+  for i, param in tqdm(enumerate(ParameterGrid(params)), desc="Parameter Searching...", ncols=94):
     try:
       cluster_labels = algo(**param).fit(data).labels_
       scores = performance_scores(data, cluster_labels, labels)
@@ -61,6 +62,9 @@ def parameter_search(
       best_scores = scores
       best_labels = cluster_labels
       best_params = param
+      best_iter = i
+    if best_iter - i >= 3:
+      break
   return best_labels, best_params, best_scores
 
 
@@ -111,7 +115,12 @@ if __name__ == "__main__":
     x = StandardScaler().fit_transform(x)
     print(f"Activations: {x.shape}")
     print(f"Labels: {l.shape}")
-    params = {"n_clusters": list(range(8, 25)), "affinity": ["nearest_neighbors"], "n_jobs": [-1]}
+    params = {
+      "n_clusters": list(range(8, 25)),
+      "affinity": ["nearest_neighbors"],
+      "n_jobs": [-1],
+      "random_state": [9001]
+    }
     clusters, p, scores = parameter_search(
       x, l, params, algo=cluster.SpectralClustering, optimize_over="silhouette"
     )
