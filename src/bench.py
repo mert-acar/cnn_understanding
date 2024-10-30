@@ -36,14 +36,14 @@ if __name__ == "__main__":
   center_y = grid_y + center_offset
   center_x = grid_x + center_offset
   patch_centers = np.stack((center_y.flatten(), center_x.flatten()), axis=1)
-  
+
   cluster_labels = clusters[f"features.{feat_idx}_input"]["cluster_labels"]
   unique_clusters = np.unique(cluster_labels)
-  
+
   cluster_labels = cluster_labels.reshape(N, D)
   inp_plots = np.zeros((10, len(unique_clusters), H, H))
   for i in range(10):
-    labels = cluster_labels[i * ns : (i + 1) * ns].flatten()
+    labels = cluster_labels[i * ns:(i + 1) * ns].flatten()
     for j, lbl in enumerate(labels):
       k = j % (h * h)
       y, x = patch_centers[k]
@@ -84,7 +84,7 @@ if __name__ == "__main__":
   cluster_labels = cluster_labels.reshape(N, D)
   out_plots = np.zeros((10, len(unique_clusters), h, h))
   for i in range(10):
-    labels = cluster_labels[i * ns : (i + 1) * ns].flatten()
+    labels = cluster_labels[i * ns:(i + 1) * ns].flatten()
     for j, lbl in enumerate(labels):
       k = j % (h * h)
       y, x = k // h, k % h
@@ -97,7 +97,7 @@ if __name__ == "__main__":
       if row == 0:
         axs[row, col].set_title(f"cluster {col + 1}")
   plt.show()
-  
+
   cluster_labels = clusters[f"features.{feat_idx}_output"]["cluster_labels"]
   out_plots = np.zeros((len(unique_clusters), h, h))
   for i, lbl in enumerate(cluster_labels):

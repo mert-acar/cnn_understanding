@@ -29,16 +29,15 @@ def create_dataloader(
   )
 
 
-def group_lasso_penalty():
+def group_lasso_penalty(model: torch.nn.Module):
   penalty = 0
   for name, param in model.named_parameters():
     if 'conv' in name and 'weight' in name:
       penalty += torch.norm(torch.norm(param.view(param.shape[0], -1), p=2, dim=1), p=1)
   return penalty
 
-
-if __name__ == "__main__":
-  with open("config.yaml", "r") as f:
+def main(config_path: str):
+  with open(config_path, "r") as f:
     config = full_load(f)
 
   # Create the checkpoint output path
@@ -96,7 +95,7 @@ if __name__ == "__main__":
           loss = criterion(output, target)
           if phase == "train":
             if group_lasso_coef is not None:
-              loss += group_lasso_coef * group_lasso_penalty()
+              loss += group_lasso_coef * group_lasso_penalty(model)
             loss.backward()
             optimizer.step()
 
@@ -140,3 +139,7 @@ if __name__ == "__main__":
     axs[i].grid(True)
   fig.suptitle("Model Performance Across Epochs")
   plt.savefig(os.path.join(config["output_path"], "performance_curves.png"), bbox_inches="tight")
+
+if __name__ == "__main__":
+  from fire import Fire
+  Fire(main)

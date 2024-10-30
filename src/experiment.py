@@ -1,15 +1,10 @@
 import os
 import numpy as np
 import pickle as p
-import pandas as pd
-from scipy.spatial.distance import cdist
-from yaml import full_load
 from scipy.io import loadmat
 from utils import load_labels
 import matplotlib.pyplot as plt
-from collections import defaultdict
-from dim_reduction import svd_reduction
-
+import seaborn as sns
 
 def chi(data, cluster_labels):
   extra_disp = bcss(data, cluster_labels)
@@ -47,34 +42,35 @@ if __name__ == "__main__":
 
   labels = load_labels()
 
-  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}_v2.p"), "rb") as f:
+  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}.p"), "rb") as f:
     clusters = p.load(f)
 
-  in_data = defaultdict(list)
-  out_data = defaultdict(list)
-  for i in tqdm(range(0, 9, 2)):
-    for arr, s in zip([in_data, out_data], ["input", "output"]):
-      var = f"features.{i}_" + s
-      # data = loadmat(
-      #   os.path.join(exp_dir, "activations", f"patches_epoch_{epoch}.mat"),
-      #   variable_names=[var]
-      # )[var][clusters[var]["idx"]]
-      # data = data.reshape(-1, data.shape[-1])
-      # data = data - data.mean(0)
-      # data = data / np.abs(data).max()
-      # data = svd_reduction(data, n_components=None, threshold=0.98)
-      # cluster_labels = clusters[var]["cluster_labels"]
-      # d = cdist(data, data).mean()
 
-      arr["var"].append(f"features.{i}")
-      arr["num_clusters"].append(clusters[var]["scores"]["num_clusters"])
-      arr["homogeneity"].append(clusters[var]["scores"]["homogeneity"])
-      arr["completeness"].append(clusters[var]["scores"]["completeness"])
-      # arr["dist_thresh"].append(clusters[var]["params"]["distance_threshold"])
-      # arr["mean_dist"].append(d)
-      # arr["k"].append(clusters[var]["params"]["distance_threshold"] / d)
-      arr["CHI"].append(clusters[var]["scores"]["calinski_harabasz_score"])
-      arr["silhouette"].append(clusters[var]["scores"]["silhouette"])
+  pbar = tqdm(total=10)
+  for i in range(0, 9, 2):
+    for var in [f"features.{i}_input", f"features.{i}_output"]:
+      data = loadmat(
+        os.path.join(exp_dir, "activations", f"patches_epoch_{epoch}.mat"), variable_names=[var]
+      )[var][clusters[var]["idx"]]
+      l = np.repeat(labels[clusters[var]["idx"]], data.shape[1])
+      data = data.reshape(-1, data.shape[-1])
+      data = data - data.mean(0)
+      data = data / np.abs(data).max()
+      cluster_labels = clusters[var]["cluster_labels"]
+      unique_clusters = np.unique(cluster_labels)
+      data_center = data.mean(0)
+      heatmap = np.zeros((10, len(unique_clusters)), dtype=int)
+      for c in unique_clusters:
+        for label in range(10):
+          heatmap[label, c] = np.sum((l == label) & (cluster_labels == c))
 
-  print(pd.DataFrame(in_data))
-  print(pd.DataFrame(out_data))
+
+      plt.figure(figsize=(10, 8))
+      sns.heatmap(heatmap, annot=True, fmt='d', xticklabels=unique_clusters, yticklabels=list(range(10)), cmap="Blues")
+      plt.xlabel('Cluster Labels')
+      plt.ylabel('True Labels')
+      plt.title('Heatmap of Label vs Cluster Distribution')
+      plt.savefig(var + "_heatmap.png", bbox_inches="tight")
+      plt.clf()
+      plt.close("all")
+      pbar.update(1)
