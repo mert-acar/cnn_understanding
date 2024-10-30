@@ -9,7 +9,7 @@ model_config:
     - ["C", 16, 32, 3, 1, 0]
     - ["C", 32, 64, 3, 1, 0]
     - ["C", 64, 64, 3, 1, 0]
-  pool: ["A", 2]
+  pool: ["A", 1]
   classifier: [64, 10]
 
 # Training
