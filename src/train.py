@@ -36,6 +36,7 @@ def group_lasso_penalty(model: torch.nn.Module):
       penalty += torch.norm(torch.norm(param.view(param.shape[0], -1), p=2, dim=1), p=1)
   return penalty
 
+
 def main(config_path: str):
   with open(config_path, "r") as f:
     config = full_load(f)
@@ -64,6 +65,9 @@ def main(config_path: str):
   model = ConvNet(config["model_config"]).to(device)
   optimizer = torch.optim.Adam(
     model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
+  )
+  scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer, factor=config["scheduler_factor"], patience=config["scheduler_patience"]
   )
   criterion = torch.nn.CrossEntropyLoss()
 
@@ -109,6 +113,7 @@ def main(config_path: str):
       metrics["Loss"][phase].append(running_error)
       metrics["Accuracy"][phase].append(running_accuracy)
       if phase == "test":
+        scheduler.step(running_error)
         if running_error < best_error:
           best_error = running_error
           best_epoch = epoch
@@ -139,6 +144,7 @@ def main(config_path: str):
     axs[i].grid(True)
   fig.suptitle("Model Performance Across Epochs")
   plt.savefig(os.path.join(config["output_path"], "performance_curves.png"), bbox_inches="tight")
+
 
 if __name__ == "__main__":
   from fire import Fire
