@@ -8,12 +8,17 @@ from scipy.io import loadmat
 from kneed import KneeLocator
 
 
-def load_labels():
+def load_labels() -> np.ndarray:
   return loadmat("../data/labels.mat")["labels"][0]
 
 
-def normalize_cols(x: np.ndarray, axis: int = 1, eps: float = 1e-12) -> np.ndarray:
-  norm = np.linalg.norm(x, axis=axis, keepdims=True)
+def normalize_rows(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
+  norm = np.linalg.norm(x, axis=0, keepdims=True)
+  return x / (norm + eps)
+
+
+def normalize_cols(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
+  norm = np.linalg.norm(x, axis=1, keepdims=True)
   return x / (norm + eps)
 
 
@@ -37,8 +42,9 @@ def find_non_zero_idx(data: np.ndarray, beta: float = 0.95) -> np.ndarray:
   return non_zero_idx
 
 
-def closest_factors(n):
+def closest_factors(n: int) -> tuple[int, int]:
   root = int(math.isqrt(n))  # integer square root
   for i in range(root, 0, -1):
     if n % i == 0:  # If i is a factor of n
       return (i, n // i)  # Return the pair of factors
+  return (n, 1)

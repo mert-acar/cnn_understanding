@@ -1,13 +1,11 @@
 import numpy as np
-from scipy.sparse import random
 from tqdm import tqdm
 from sklearn import metrics
 from sklearn import cluster
 from typing import Callable, Tuple
 from scipy.optimize import linear_sum_assignment
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import ParameterGrid
-
-from dim_reduction import pca_reduction
 
 
 def select_random_samples(labels: np.ndarray, num_samples_per_label: int) -> np.ndarray:
@@ -44,20 +42,16 @@ def parameter_search(
   labels: np.ndarray,
   params: dict,
   algo: Callable = cluster.AgglomerativeClustering,
-  optimize_over: str = "calinski_harabasz_score",
-  max: bool = True
 ) -> Tuple[np.ndarray, dict, dict]:
-  best = None
-  comparator = (lambda x, y: x > y) if max else (lambda x, y: x < y)
-  for i, param in tqdm(
-    list(enumerate(ParameterGrid(params))), desc="Parameter Searching...", ncols=94
-  ):
+  best = -1
+  comparator = lambda x, y: x > y
+  for param in tqdm(ParameterGrid(params), desc="Parameter Searching...", ncols=94):
     try:
       cluster_labels = algo(**param).fit(data).labels_
       scores = performance_scores(data, cluster_labels, labels)
     except ValueError:
       continue
-    score = scores[optimize_over]
+    score = scores["silhouette"]
     if best is None or comparator(score, best):
       best = score
       best_scores = scores
@@ -81,51 +75,32 @@ def performance_scores(data: np.ndarray, cluster_labels: np.ndarray, labels: np.
 
 if __name__ == "__main__":
   import os
-  from time import perf_counter
+  import pickle
   from scipy.io import loadmat
-  from sklearn.mixture import GaussianMixture
-  from sklearn.neighbors import kneighbors_graph
-  from sklearn.preprocessing import StandardScaler
+  from dim_reduction import pca_reduction
 
-  exp_dir = "../logs/customnet_run2/"
+  exp_dir = "../logs/spn_3/"
   labels = loadmat("../data/labels.mat")["labels"][0]
-  epoch = 33
-  random_state = 9001
+  out = {}
+  epoch = 50
+  for i, n in zip(range(0, 5, 2), [5, 10, 10]):
+    var = f"features.{i}_output"
+    x = loadmat(
+      os.path.join(exp_dir, "activations", f"patches_epoch_{epoch}.mat"),
+      variable_names=[var],
+    )[var]
+    k = 24000 // (10 * x.shape[1])
+    idx = select_random_samples(labels, k)
+    x = x[idx]
+    x = x.reshape(-1, x.shape[-1])
+    # x = x.reshape(x.shape[0], -1)
+    # x = x.mean(-1).mean(-1)
+    print(var)
+    x = StandardScaler().fit_transform(x)
+    x = pca_reduction(x, n_components=None, threshold=0.98)
 
-  var = "features.8_output"
-  x = loadmat(
-    os.path.join(exp_dir, "activations", f"patches_epoch_{epoch}.mat"),
-    variable_names=[var],
-  )[var]
+    y_pred = cluster.MiniBatchKMeans(n_clusters=n, batch_size=2048).fit(x).labels_
+    out[var] = {"cluster_labels": y_pred, "idx": idx}
 
-  # n = 40000 // (10 * x.shape[1])
-  # idx = select_random_samples(labels, n)
-  # x = x[idx]
-  # l = labels[idx]
-  labels = np.repeat(labels, x.shape[1])
-  x = x.reshape(-1, x.shape[-1])
-  x = StandardScaler().fit_transform(x)
-  print(f"Activations: {x.shape}")
-  tick = perf_counter()
-  x = pca_reduction(x, n_components=None, threshold=0.98)
-  print(f"PCA took: {perf_counter() - tick:.3f} seconds")
-  print("After PCA:", x.shape)
-
-  connectivity = kneighbors_graph(
-      x, n_neighbors=4, include_self=False
-  )
-  connectivity = 0.5 * (connectivity + connectivity.T)
-
-  algos = {
-      "k_means": cluster.MiniBatchKMeans(n_clusters=10, random_state=random_state, batch_size=2048),
-      "agglomerative": cluster.AgglomerativeClustering(n_clusters=10, connectivity=connectivity),
-      "spectral": cluster.SpectralClustering(n_clusters=10, affinity="nearest_neighbors", random_state=random_state),
-      "gmm": GaussianMixture(n_components=10, random_state=random_state)
-  }
-
-  for name, algo in algos.items():
-    tick = perf_counter()
-    y_pred = algo.fit(x).labels_
-    print(f"{name} took {perf_counter() - tick:.3f} seconds")
-    y_pred, _ = map_clusters(y_pred, labels)
-    print(f"{name} | Adjusted RAND Index: {metrics.adjusted_rand_score(labels, y_pred):.3f}") # | Silhouette: {metrics.silhouette_score(x, y_pred):.3f}")
+  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}.p"), "wb") as f:
+    pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)

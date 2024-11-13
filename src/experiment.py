@@ -1,76 +1,101 @@
 import os
+import pickle
 import numpy as np
-import pickle as p
-from scipy.io import loadmat
-from utils import load_labels
-import matplotlib.pyplot as plt
+from tqdm import tqdm
 import seaborn as sns
-
-def chi(data, cluster_labels):
-  extra_disp = bcss(data, cluster_labels)
-  intra_disp = wcss(data, cluster_labels)
-  n_samples = len(data)
-  n_labels = len(np.unique(cluster_labels))
-  return extra_disp * (n_samples - n_labels) / (intra_disp * (n_labels - 1.0))
-
-
-def wcss(data, cluster_labels):
-  unique_clusters = np.unique(cluster_labels)
-  score = 0
-  for c in unique_clusters:
-    cluster_points = data[cluster_labels == c]
-    cluster_center = cluster_points.mean(0)
-    score += np.sum((cluster_points - cluster_center)**2)
-  return score
-
-
-def bcss(data, cluster_labels):
-  data_center = data.mean(0)
-  unique_clusters = np.unique(cluster_labels)
-  score = 0
-  for c in unique_clusters:
-    cluster_points = data[cluster_labels == c]
-    cluster_center = cluster_points.mean(0)
-    score += len(cluster_points) * ((cluster_center - data_center)**2).sum()
-  return score
-
+import matplotlib.pyplot as plt
+from scipy.io import loadmat, savemat
+import matplotlib.gridspec as gridspec
+from dim_reduction import pca_reduction
+from scipy.spatial.distance import cdist
+from sklearn.preprocessing import StandardScaler
 
 if __name__ == "__main__":
-  from tqdm import tqdm
   exp_dir = "../logs/customnet_run2/"
   epoch = 33
 
-  labels = load_labels()
+  data = loadmat(os.path.join(exp_dir, "activations", f"act_epoch_{epoch}.mat"))
+  labels = loadmat("../data/labels.mat")["labels"][0]
+  l = list(map(str, range(10)))
 
-  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}.p"), "rb") as f:
-    clusters = p.load(f)
+  # adj = {}
+  # for i in range(10):
+  #   var = f"features.{i}"
+  #   adj[var] = np.zeros((10, 10))
+  #   x = data[var]
+  #   x = x.reshape(x.shape[0], -1)
+  #   x = x - x.mean(0)
+  #   x = x / np.abs(x).max()
+  #   x = pca_reduction(x, n_components=None, threshold=0.95)
+  #   print(var, "->", x.shape)
+  #   dim = np.sqrt(x.shape[-1])
+  #   for j in range(10):
+  #     for k in range(j + 1, 10):
+  #       lbl_j = x[labels == j]
+  #       lbl_k = x[labels == k]
+  #       d = (cdist(lbl_j, lbl_k) / dim).mean()
+  #       adj[var][j, k] = d
+  #       adj[var][k, j] = d
 
+  adj = loadmat(os.path.join(exp_dir, "clusters", "adjacency_matrices.mat"))
+  np.set_printoptions(precision=2, suppress=True)
+  # for i in range(10):
+  #   key = f"features.{i}"
+  #   print(key)
+  #   print(adj[key])
+  #   print()
 
-  pbar = tqdm(total=10)
-  for i in range(0, 9, 2):
-    for var in [f"features.{i}_input", f"features.{i}_output"]:
-      data = loadmat(
-        os.path.join(exp_dir, "activations", f"patches_epoch_{epoch}.mat"), variable_names=[var]
-      )[var][clusters[var]["idx"]]
-      l = np.repeat(labels[clusters[var]["idx"]], data.shape[1])
-      data = data.reshape(-1, data.shape[-1])
-      data = data - data.mean(0)
-      data = data / np.abs(data).max()
-      cluster_labels = clusters[var]["cluster_labels"]
-      unique_clusters = np.unique(cluster_labels)
-      data_center = data.mean(0)
-      heatmap = np.zeros((10, len(unique_clusters)), dtype=int)
-      for c in unique_clusters:
-        for label in range(10):
-          heatmap[label, c] = np.sum((l == label) & (cluster_labels == c))
+  vmin, vmax = 0, 2
+  for i in range(0, 10, 2):
+    # Create a new figure for each pair
+    fig = plt.figure(figsize=(12, 6))
+    gs = gridspec.GridSpec(1, 3, width_ratios=[1, 1, 0.05])  # Third column for color bar
 
+    # Create subplots for the heatmaps
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
+    cbar_ax = fig.add_subplot(gs[0, 2])
 
-      plt.figure(figsize=(10, 8))
-      sns.heatmap(heatmap, annot=True, fmt='d', xticklabels=unique_clusters, yticklabels=list(range(10)), cmap="Blues")
-      plt.xlabel('Cluster Labels')
-      plt.ylabel('True Labels')
-      plt.title('Heatmap of Label vs Cluster Distribution')
-      plt.savefig(var + "_heatmap.png", bbox_inches="tight")
-      plt.clf()
-      plt.close("all")
-      pbar.update(1)
+    # Plot each matrix as a heatmap
+    sns.heatmap(
+      adj[f"features.{i}"],
+      annot=True,
+      fmt=".2f",
+      ax=ax1,
+      vmin=vmin,
+      vmax=vmax,
+      xticklabels=l,
+      yticklabels=l,
+      cmap="viridis",
+      cbar=True,
+      cbar_ax=cbar_ax
+    )
+    sns.heatmap(
+      adj[f"features.{i + 1}"],
+      annot=True,
+      fmt=".2f",
+      ax=ax2,
+      vmin=vmin,
+      vmax=vmax,
+      xticklabels=l,
+      yticklabels=l,
+      cmap="viridis",
+      cbar=False
+    )
+
+    # # Add the color bar on the third subplot
+    # sns.heatmap(
+    #   adj[f"features.{i}"], ax=ax1, cmap="viridis", cbar=True, vmin=vmin, vmax=vmax, cbar_ax=cbar_ax
+    # )
+
+    # Set titles or labels as needed
+    ax1.set_title(f"features.{i} [conv]")
+    ax1.set_xlabel("Labels")
+    ax1.set_ylabel("Labels")
+    ax2.set_title(f"features.{i + 1} [ReLU]")
+    ax2.set_xlabel("Labels")
+    ax2.set_ylabel("Labels")
+
+    # Adjust layout
+    plt.tight_layout()
+    plt.savefig(f"features_{i}.png", bbox_inches="tight")

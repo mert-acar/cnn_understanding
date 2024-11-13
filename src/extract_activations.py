@@ -55,10 +55,10 @@ if __name__ == "__main__":
   from yaml import full_load
   from collections import defaultdict
 
-  experiment_path = "../logs/customnet_run2/"
-  hook_targets = [f"features.{i}" for i in range(0, 10)] + ["pool"]
+  experiment_path = "../logs/spn_3/"
+  hook_targets = [f"features.{i}" for i in range(0, 5, 2)]
   patches = False
-  ckpts = 33
+  ckpts = 50
 
   hooked_activations = defaultdict(list)
 

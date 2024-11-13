@@ -3,3 +3,6 @@ extends = "../../../.config/pyright/pyrightconfig.json"
 venv = "uiuc"
 include = ["src"]
 pythonVersion = 3.11
+reportArgumentType = false
+reportOptionalMemberAccess = false
+reportOptionalOperand = false

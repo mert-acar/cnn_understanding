@@ -32,7 +32,8 @@ def create_dataloader(
 def group_lasso_penalty(model: torch.nn.Module):
   penalty = 0
   for name, param in model.named_parameters():
-    if 'conv' in name and 'weight' in name:
+    if 'features' in name:
+    # if 'conv' in name and 'weight' in name:
       penalty += torch.norm(torch.norm(param.view(param.shape[0], -1), p=2, dim=1), p=1)
   return penalty
 

@@ -1,8 +1,8 @@
 import os
 import torch
 from tqdm import tqdm
-from model import ConvNet
 from yaml import full_load
+from model import load_model
 import torch.nn.functional as F
 from train import create_dataloader
 from torch.utils.data import DataLoader
@@ -16,11 +16,7 @@ def main(experiment_path: str, checkpoint_num: int = 1):
 
   dataloader = create_dataloader(split="test", **config)
 
-  model = ConvNet(config["model_config"]).to(device)
-  weights = torch.load(
-    os.path.join(experiment_path, f"checkpoint_{checkpoint_num}.pt"), map_location=device
-  )
-  model.load_state_dict(weights)
+  model = load_model(experiment_path, checkpoint_num).to(device)
   model.eval()
   criterion = torch.nn.CrossEntropyLoss()
   results = test(model, dataloader, criterion, device)
