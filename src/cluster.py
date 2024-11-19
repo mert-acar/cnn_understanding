@@ -2,22 +2,29 @@ import numpy as np
 from tqdm import tqdm
 from sklearn import metrics
 from sklearn import cluster
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Optional
 from scipy.optimize import linear_sum_assignment
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import ParameterGrid
 
 
-def select_random_samples(labels: np.ndarray, num_samples_per_label: int) -> np.ndarray:
-  unique_labels = np.unique(labels)
-  selected_indices = []
-  for label in unique_labels:
-    indices = np.where(labels == label)[0]
-    if len(indices) < num_samples_per_label:
-      raise ValueError(f"Not enough samples for label {label}. Only {len(indices)} available.")
-    selected = np.random.choice(indices, num_samples_per_label, replace=False)
-    selected_indices.extend(selected)
-  return np.array(selected_indices)
+def bcss_wcss(
+  x: np.ndarray,
+  cluster_labels: np.ndarray,
+  return_chi: bool = False
+) -> Tuple[float, float, Optional[float]]:
+  n_labels = len(set(cluster_labels))
+  extra_disp, intra_disp = 0.0, 0.0
+  mean = np.mean(x, axis=0)
+  for k in range(n_labels):
+    cluster_k = x[cluster_labels == k]
+    mean_k = np.mean(cluster_k, axis=0)
+    extra_disp += len(cluster_k) * np.sum((mean_k - mean)**2)
+    intra_disp += np.sum((cluster_k - mean_k)**2)
+
+  if return_chi:
+    chi = extra_disp * (len(x) - n_labels) / (intra_disp * (n_labels - 1.0))
+    return extra_disp, intra_disp, chi
+  return extra_disp, intra_disp, None
 
 
 def map_clusters(label_a: np.ndarray, labels_b: np.ndarray) -> Tuple[np.ndarray, dict[int, int]]:
@@ -71,36 +78,3 @@ def performance_scores(data: np.ndarray, cluster_labels: np.ndarray, labels: np.
     "mutual_information": metrics.adjusted_mutual_info_score(labels, cluster_labels),
     "num_clusters": len(np.unique(cluster_labels[cluster_labels != -1])),
   }
-
-
-if __name__ == "__main__":
-  import os
-  import pickle
-  from scipy.io import loadmat
-  from dim_reduction import pca_reduction
-
-  exp_dir = "../logs/spn_3/"
-  labels = loadmat("../data/labels.mat")["labels"][0]
-  out = {}
-  epoch = 50
-  for i, n in zip(range(0, 5, 2), [5, 10, 10]):
-    var = f"features.{i}_output"
-    x = loadmat(
-      os.path.join(exp_dir, "activations", f"patches_epoch_{epoch}.mat"),
-      variable_names=[var],
-    )[var]
-    k = 24000 // (10 * x.shape[1])
-    idx = select_random_samples(labels, k)
-    x = x[idx]
-    x = x.reshape(-1, x.shape[-1])
-    # x = x.reshape(x.shape[0], -1)
-    # x = x.mean(-1).mean(-1)
-    print(var)
-    x = StandardScaler().fit_transform(x)
-    x = pca_reduction(x, n_components=None, threshold=0.98)
-
-    y_pred = cluster.MiniBatchKMeans(n_clusters=n, batch_size=2048).fit(x).labels_
-    out[var] = {"cluster_labels": y_pred, "idx": idx}
-
-  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}.p"), "wb") as f:
-    pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)

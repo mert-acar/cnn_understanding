@@ -8,8 +8,8 @@ from scipy.io import loadmat
 from kneed import KneeLocator
 
 
-def load_labels() -> np.ndarray:
-  return loadmat("../data/labels.mat")["labels"][0]
+def load_MNIST_labels() -> np.ndarray:
+  return loadmat("../data/MNIST/labels.mat")["labels"][0]
 
 
 def normalize_rows(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
@@ -22,7 +22,6 @@ def normalize_cols(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
   return x / (norm + eps)
 
 
-# Function to extract epoch number from the key
 def extract_epoch(key: str) -> int:
   match = re.search(r'epoch_(\d+)', key)
   return int(match.group(1)) if match else 0
@@ -43,8 +42,8 @@ def find_non_zero_idx(data: np.ndarray, beta: float = 0.95) -> np.ndarray:
 
 
 def closest_factors(n: int) -> tuple[int, int]:
-  root = int(math.isqrt(n))  # integer square root
+  root = int(math.isqrt(n))
   for i in range(root, 0, -1):
-    if n % i == 0:  # If i is a factor of n
-      return (i, n // i)  # Return the pair of factors
+    if n % i == 0:
+      return (i, n // i)
   return (n, 1)

@@ -1,13 +1,16 @@
 import torch
 from tqdm import tqdm
 from scipy.io import savemat
+from torchvision import models
 import torch.nn.functional as F
 from typing import Union, Callable
 from collections import defaultdict
 from torch.utils.data import DataLoader
 
 from model import load_model
-from train import create_dataloader
+from dataset import create_dataloader
+
+hooked_activations = defaultdict(list)
 
 
 def get_patches(
@@ -19,6 +22,11 @@ def get_patches(
 
 
 def forward_pass(model: torch.nn.Module, dataloader: DataLoader):
+  device = torch.device("cuda" if torch.cuda.is_available() else "mps")
+  print(f"[INFO] Running on {device}")
+  model = model.to(device)
+  model.eval()
+
   pbar = tqdm(dataloader, total=len(dataloader), ncols=94)
   with torch.inference_mode():
     for data, target in pbar:
@@ -27,14 +35,12 @@ def forward_pass(model: torch.nn.Module, dataloader: DataLoader):
 
 
 def hook_gen(key: str, layer: Union[None, torch.nn.Module] = None) -> Callable:
-
   if layer is None:
 
     def hook_fn(model, input, output):
       hooked_activations[key].append(output.detach().cpu())
 
     return hook_fn
-
   else:
     if isinstance(layer, torch.nn.Conv2d):
       k, s, p = int(layer.kernel_size[0]), int(layer.stride[0]), int(layer.padding[0])
@@ -50,49 +56,45 @@ def hook_gen(key: str, layer: Union[None, torch.nn.Module] = None) -> Callable:
       raise NotImplementedError(f"Hook function for {layer} is not implemented")
 
 
-if __name__ == "__main__":
-  import os
-  from yaml import full_load
-  from collections import defaultdict
-
-  experiment_path = "../logs/spn_3/"
-  hook_targets = [f"features.{i}" for i in range(0, 5, 2)]
-  patches = False
-  ckpts = 50
-
-  hooked_activations = defaultdict(list)
-
-  with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
-    config = full_load(f)
-
-  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-  print(f"[INFO] Running on {device}")
-
-  dataloader = create_dataloader(split="test", **config)
-  model = load_model(experiment_path, ckpts).to(device)
-  model.eval()
-
+def hook_layers(model: torch.nn.Module, targets: list[str]):
   layer_list = dict([*model.named_modules()])
-  for target in hook_targets:
+  for target in targets:
     if target not in layer_list:
       print(f"[INFO] Layer {target} does not exits, skipping...")
       continue
     target_layer = layer_list[target]
-    if patches:
-      target_layer.register_forward_hook(hook_gen(target, target_layer))
-    else:
-      target_layer.register_forward_hook(hook_gen(target, None))
+    target_layer.register_forward_hook(hook_gen(target, None))
     print(f"[INFO] Hooking {target}: {target_layer}")
 
-  forward_pass(model, dataloader)
 
-  out_path = os.path.join(config["output_path"], "activations")
+
+if __name__ == "__main__":
+  import os
+  from yaml import full_load
+
+  # experiment_path = "../logs/customnet_MNIST/"
+  # ckpts = 33
+  # hook_targets = [f"features.{i}" for i in range(0, 9, 2)]
+  # out_path = os.path.join(experiment_path, "activations")
+  # os.makedirs(out_path, exist_ok=True)
+  # out_path = os.path.join(out_path, f"act_epoch_{ckpts}")
+  # with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
+  #   config = full_load(f)
+  # dataloader = create_dataloader(split="test", **config)
+  # model = load_model(experiment_path, ckpts)
+
+  out_path = "../logs/densenet121_IMAGENET/activations"
   os.makedirs(out_path, exist_ok=True)
+  out_path = os.path.join(out_path, f"act_pretrained.mat")
+  # hook_targets = ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)]
+  # hook_targets = [f"features.{i}" for i in range(1, 8)]
+  hook_targets = ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)]
+  dataloader = create_dataloader("imagenet", "../data/ImageNet/", "val")
+  model = models.densenet121(weights="DEFAULT")
 
+  hook_layers(model, hook_targets)
+  forward_pass(model, dataloader)
   for key in hooked_activations:
     hooked_activations[key] = torch.cat(hooked_activations[key], 0)
-
-  savemat(
-    os.path.join(out_path, f"{'patches' if patches else 'act'}_epoch_{ckpts}.mat"),
-    hooked_activations
-  )
+    print(key, "→", hooked_activations[key].shape)
+  savemat(out_path, hooked_activations)

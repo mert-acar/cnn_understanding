@@ -6,34 +6,16 @@ from yaml import full_load
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from shutil import rmtree, copyfile
-from torchvision.datasets import MNIST
-from torch.utils.data import DataLoader
-from torchvision.transforms import Compose, ToTensor, Normalize
 
-from model import ConvNet
-
-
-def create_dataloader(
-  data_root: str = "../data/",
-  batch_size: int = 1,
-  num_workers: int = 4,
-  split: str = "train",
-  **kwargs
-) -> DataLoader:
-  transform = Compose([ToTensor(), Normalize((0.1307, ), (0.3081, ))])
-  return DataLoader(
-    MNIST(root=data_root, download=True, train=split == 'train', transform=transform),
-    batch_size=batch_size,
-    num_workers=num_workers,
-    shuffle=split == 'train'
-  )
+from model import create_model
+from dataset import create_dataloader
 
 
 def group_lasso_penalty(model: torch.nn.Module):
   penalty = 0
   for name, param in model.named_parameters():
     if 'features' in name:
-    # if 'conv' in name and 'weight' in name:
+      # if 'conv' in name and 'weight' in name:
       penalty += torch.norm(torch.norm(param.view(param.shape[0], -1), p=2, dim=1), p=1)
   return penalty
 
@@ -63,7 +45,7 @@ def main(config_path: str):
     "test": create_dataloader(split="test", **config),
   }
 
-  model = ConvNet(config["model_config"]).to(device)
+  model = create_model(**config["model"]).to(device)
   optimizer = torch.optim.Adam(
     model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
   )
