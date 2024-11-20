@@ -5,8 +5,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-  exp_path = "../logs/resnet18_IMAGENET/"
-  # exp_path = "../logs/densenet121_IMAGENET/"
+  # exp_path = "../logs/resnet18_IMAGENET/"
+  exp_path = "../logs/densenet121_IMAGENET/"
   # exp_path = "../logs/efficientnetb2_IMAGENET/"
   # exp_path = "../logs/customnet_IMAGENET/"
   # exp_path = "../logs/resnet18_MNIST/"

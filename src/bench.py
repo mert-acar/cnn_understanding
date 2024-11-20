@@ -13,6 +13,7 @@ from scipy.io import loadmat, savemat
 from scipy.spatial.distance import cdist
 
 from cluster import bcss_wcss
+from utils import load_MNIST_labels
 from dim_reduction import pca_reduction
 from dataset import select_random_samples, create_dataloader
 
@@ -22,10 +23,10 @@ def normalized_minkowski(x: np.ndarray, y: np.ndarray) -> float:
 
 
 if __name__ == "__main__":
-  exp_dir = "../logs/resnet18_IMAGENET/"
-  vars = ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)]
-  # exp_dir = "../logs/densenet121_IMAGENET/"
-  # vars = ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)]
+  # exp_dir = "../logs/resnet18_IMAGENET/"
+  # vars = ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)]
+  exp_dir = "../logs/densenet121_IMAGENET/"
+  vars = ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)]
   # exp_dir = "../logs/efficientnetb2_IMAGENET/"
   # vars = [f"features.{i}" for i in range(1, 8)]
   # exp_dir = "../logs/customnet_IMAGENET/"
@@ -47,7 +48,7 @@ if __name__ == "__main__":
   # labels = load_MNIST_labels()
   # idx = select_random_samples(labels, 700)
   # labels = labels[idx]
-
+  
   param = {
     "affinity": "precomputed",
     "n_jobs": -1,

@@ -50,6 +50,8 @@ def create_mnist_dataloader(
   **kwargs
 ) -> DataLoader:
   transform = transforms.Compose([
+    # transforms.Resize(256),
+    # transforms.CenterCrop(224),
     transforms.ToImage(),
     transforms.ToDtype(torch.float32, scale=True),
     transforms.Normalize((0.1307, ), (0.3081, ))

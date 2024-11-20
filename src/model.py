@@ -17,8 +17,12 @@ def create_model(model_name: str, config: dict) -> nn.Module:
     model.fc = nn.Linear(512, 10, bias=True)
   elif model_name.lower() == "densenet121":
     model = models.get_model(model_name, **config)
-    model.conv1 = nn.Conv2d(1, 64, 7, 2, 3, bias=False)
-    model.fc = nn.Linear(512, 10, bias=True)
+    model.features.conv0 = nn.Conv2d(1, 64, 7, 2, 3, bias=False)
+    model.classifier = nn.Linear(1024, 10, bias=True)
+  elif model_name.lower() == "efficientnet_b3":
+    model = models.get_model(model_name, **config)
+    model.features[0][0] = nn.Conv2d(1, 40, 3, 2, 1, bias=False)
+    model.classifier[1] = nn.Linear(1024, 10, bias=True)
   else:
     raise NotImplementedError(model_name)
   return model
