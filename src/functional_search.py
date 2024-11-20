@@ -5,7 +5,18 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-  exp_path = "../logs/densenet121_IMAGENET/"
+  exp_path = "../logs/resnet18_IMAGENET/"
+  # exp_path = "../logs/densenet121_IMAGENET/"
+  # exp_path = "../logs/efficientnetb2_IMAGENET/"
+  # exp_path = "../logs/customnet_IMAGENET/"
+  # exp_path = "../logs/resnet18_MNIST/"
+  # exp_path = "../logs/densenet121_MNIST/"
+  # exp_path = "../logs/efficientnetb2_MNIST/"
+  # exp_path = "../logs/customnet_MNIST/"
+
+  out_path = os.path.join(exp_path, "figures")
+  os.makedirs(out_path, exist_ok=True)
+
   data_path = "clusters/spectral_custom_metric_scores.csv"
   df = pd.read_csv(os.path.join(exp_path, data_path))
 
@@ -43,7 +54,8 @@ if __name__ == "__main__":
         axs[i, j].legend()
         axs[i, j].set_title(score)
     plt.suptitle(var)
-    plt.show()
+    # plt.show()
+    plt.savefig(os.path.join(out_path, f"{var.replace('.','_')}.png"), bbox_inches="tight")
     plt.clf()
     plt.close("all")
 
@@ -63,6 +75,7 @@ if __name__ == "__main__":
       axs[i, j].grid()
       axs[i, j].set_title(score)
   plt.suptitle("Best Scores")
-  plt.show()
+  # plt.show()
+  plt.savefig(os.path.join(out_path, f"best.png"), bbox_inches="tight")
   plt.clf()
   plt.close("all")

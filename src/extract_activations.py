@@ -72,25 +72,41 @@ if __name__ == "__main__":
   import os
   from yaml import full_load
 
+  # ### CUSTOMNET MNIST ###
   # experiment_path = "../logs/customnet_MNIST/"
-  # ckpts = 33
   # hook_targets = [f"features.{i}" for i in range(0, 9, 2)]
   # out_path = os.path.join(experiment_path, "activations")
   # os.makedirs(out_path, exist_ok=True)
-  # out_path = os.path.join(out_path, f"act_epoch_{ckpts}")
-  # with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
-  #   config = full_load(f)
-  # dataloader = create_dataloader(split="test", **config)
-  # model = load_model(experiment_path, ckpts)
+  # out_path = os.path.join(out_path, f"act_pretrained")
+  # dataloader = create_dataloader("mnist", "../data/", "test")
+  # model = load_model(experiment_path, 33)
 
-  out_path = "../logs/densenet121_IMAGENET/activations"
+  # ### DENSENET121 IMAGENET ###
+  # experiment_path = "../logs/densenet121_IMAGENET/"
+  # hook_targets = ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)]
+  # out_path = os.path.join(experiment_path, "activations")
+  # os.makedirs(out_path, exist_ok=True)
+  # out_path = os.path.join(out_path, f"act_pretrained.mat")
+  # dataloader = create_dataloader("imagenet", "../data/ImageNet/", "val")
+  # model = models.densenet121(weights="DEFAULT")
+  
+  # ### DENSENET121 MNSIT ###
+  # experiment_path = "../logs/densenet121_MNIST/"
+  # hook_targets = ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)]
+  # out_path = os.path.join(experiment_path, "activations")
+  # os.makedirs(out_path, exist_ok=True)
+  # out_path = os.path.join(out_path, f"act_pretrained.mat")
+  # dataloader = create_dataloader("mnist", "../data/", "test")
+  # model = load_model(experiment_path, 3)
+
+  ### RESNET18 IMAGENET ###
+  experiment_path = "../logs/resnet18_IMAGENET/"
+  hook_targets = ["conv1"] + [f"layer{i}.{j}" for i in range(1,5) for j in range(2)]
+  out_path = os.path.join(experiment_path, "activations")
   os.makedirs(out_path, exist_ok=True)
   out_path = os.path.join(out_path, f"act_pretrained.mat")
-  # hook_targets = ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)]
-  # hook_targets = [f"features.{i}" for i in range(1, 8)]
-  hook_targets = ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)]
-  dataloader = create_dataloader("imagenet", "../data/ImageNet/", "val")
-  model = models.densenet121(weights="DEFAULT")
+  dataloader = create_dataloader("imagenet", "../data/ImageNet", "val")
+  model = models.resnet18(weights="DEFAULT")
 
   hook_layers(model, hook_targets)
   forward_pass(model, dataloader)

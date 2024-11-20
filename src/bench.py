@@ -22,12 +22,31 @@ def normalized_minkowski(x: np.ndarray, y: np.ndarray) -> float:
 
 
 if __name__ == "__main__":
-  exp_dir = "../logs/densenet121_IMAGENET/"
+  exp_dir = "../logs/resnet18_IMAGENET/"
+  vars = ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)]
+  # exp_dir = "../logs/densenet121_IMAGENET/"
+  # vars = ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)]
+  # exp_dir = "../logs/efficientnetb2_IMAGENET/"
+  # vars = [f"features.{i}" for i in range(1, 8)]
+  # exp_dir = "../logs/customnet_IMAGENET/"
+  # vars = [f"features.{i}" for i in range(1, 8)]
+
+  labels = create_dataloader("imagenet", "../data/ImageNet", "val").dataset.targets
+  idx = None
+
+
+  # exp_dir = "../logs/resnet18_MNIST/"
+  # vars = ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)]
+  # exp_dir = "../logs/densenet121_MNIST/"
+  # vars = ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)]
+  # exp_dir = "../logs/efficientnetb2_MNIST/"
+  # vars = [f"features.{i}" for i in range(1, 8)]
+  # exp_dir = "../logs/customnet_MNIST/"
+  # vars = [f"features.{i}" for i in range(1, 8)]
+
   # labels = load_MNIST_labels()
   # idx = select_random_samples(labels, 700)
   # labels = labels[idx]
-  # epoch = 34
-  labels = create_dataloader("imagenet", "../data/ImageNet", "val").dataset.targets
 
   param = {
     "affinity": "precomputed",
@@ -37,9 +56,6 @@ if __name__ == "__main__":
     "assign_labels": "cluster_qr"
   }
 
-  # vars = [f"features.{i}" for i in range(1, 8)]
-  vars = ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)]
-  # vars = ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)]
   out = {}
   scores = defaultdict(list)
   for var in vars:
@@ -49,10 +65,10 @@ if __name__ == "__main__":
     x = loadmat(
       os.path.join(exp_dir, "activations", f"act_pretrained.mat"),
       variable_names=[var]
-      # os.path.join(exp_dir, "activations", f"act_epoch_{epoch}.mat"), variable_names=[var]
     )[var]
 
-    # x = x[idx]
+    if idx is not None:
+      x = x[idx]
 
     x = x.reshape(x.shape[0], -1)
     x = x - x.mean(0)
