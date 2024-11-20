@@ -9,20 +9,25 @@ from dataset import create_dataloader
 # VGG_HOOK_IDX: [0, 2, 5, 7, 10, 12, 14, 17, 19, 21, 24, 26, 28]
 
 def create_model(model_name: str, config: dict) -> nn.Module:
+  in_ch = 1
   if model_name.lower() == "convnet":
     model =  ConvNet(config)
   elif model_name.lower() == "resnet18":
     model = models.get_model(model_name, **config)
-    model.conv1 = nn.Conv2d(1, 64, 7, 2, 3, bias=False)
+    model.conv1 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)
     model.fc = nn.Linear(512, 10, bias=True)
   elif model_name.lower() == "densenet121":
     model = models.get_model(model_name, **config)
-    model.features.conv0 = nn.Conv2d(1, 64, 7, 2, 3, bias=False)
+    model.features.conv0 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)
     model.classifier = nn.Linear(1024, 10, bias=True)
+  elif model_name.lower() == "efficientnet_b2":
+    model = models.get_model(model_name, **config)
+    model.features[0][0] = nn.Conv2d(in_ch, 32, 3, 2, 1, bias=False)
+    model.classifier[1] = nn.Linear(1408, 10, bias=True)
   elif model_name.lower() == "efficientnet_b3":
     model = models.get_model(model_name, **config)
-    model.features[0][0] = nn.Conv2d(1, 40, 3, 2, 1, bias=False)
-    model.classifier[1] = nn.Linear(1024, 10, bias=True)
+    model.features[0][0] = nn.Conv2d(in_ch, 40, 3, 2, 1, bias=False)
+    model.classifier[1] = nn.Linear(1536, 10, bias=True)
   else:
     raise NotImplementedError(model_name)
   return model

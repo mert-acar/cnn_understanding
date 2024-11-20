@@ -9,7 +9,10 @@ from torch.utils.data import DataLoader
 import torchvision.datasets as datasets
 import torchvision.transforms.v2 as transforms
 
-IMAGENET_CLASS_IDX = [37, 55, 69, 256, 259, 275, 308, 525, 551, 577, 582, 620, 630, 647, 649, 676, 729, 776, 839, 914]
+IMAGENET_CLASS_IDX = [
+  37, 55, 69, 256, 259, 275, 308, 525, 551, 577, 582, 620, 630, 647, 649, 676, 729, 776, 839, 914
+]
+
 
 def create_dataloader(
   dataset: str,
@@ -23,6 +26,8 @@ def create_dataloader(
     return create_mnist_dataloader(data_root, batch_size, num_workers, split, **kwargs)
   elif dataset.lower() == "imagenet":
     return create_imagenet_dataloader(data_root, batch_size, num_workers, split, **kwargs)
+  elif dataset.lower() == "cifar10":
+    return create_cifar_dataloader(data_root, batch_size, num_workers, split, **kwargs)
   else:
     raise NotImplementedError(dataset)
 
@@ -42,6 +47,35 @@ def select_random_samples(
   return np.array(selected_indices)
 
 
+def create_cifar_dataloader(
+  data_root: str = "../data/",
+  batch_size: int = 1,
+  num_workers: int = 4,
+  split: str = "train",
+  **kwargs
+) -> DataLoader:
+  if split == "train":
+    transform = transforms.Compose([
+      transforms.RandomCrop(32, padding=4),
+      transforms.RandomHorizontalFlip(),
+      transforms.ToImage(),
+      transforms.ToDtype(torch.float32, scale=True),
+      transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+    ])
+  else:
+    transform = transforms.Compose([
+      transforms.ToImage(),
+      transforms.ToDtype(torch.float32, scale=True),
+      transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+    ])
+  return DataLoader(
+    datasets.CIFAR10(root=data_root, download=True, train=split == 'train', transform=transform),
+    batch_size=batch_size,
+    num_workers=num_workers,
+    shuffle=split == 'train'
+  )
+
+
 def create_mnist_dataloader(
   data_root: str = "../data/",
   batch_size: int = 1,
@@ -50,8 +84,7 @@ def create_mnist_dataloader(
   **kwargs
 ) -> DataLoader:
   transform = transforms.Compose([
-    # transforms.Resize(256),
-    # transforms.CenterCrop(224),
+    transforms.Resize(144),
     transforms.ToImage(),
     transforms.ToDtype(torch.float32, scale=True),
     transforms.Normalize((0.1307, ), (0.3081, ))
