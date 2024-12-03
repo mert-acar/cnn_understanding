@@ -1,10 +1,8 @@
 import os
 import json
 import torch
-import numpy as np
 from glob import glob
 from PIL import Image
-from typing import Union
 from torch.utils.data import DataLoader
 import torchvision.datasets as datasets
 import torchvision.transforms.v2 as transforms
@@ -16,35 +14,19 @@ IMAGENET_CLASS_IDX = [
 
 def create_dataloader(
   dataset: str,
-  data_root: str,
   split: str,
   batch_size: int = 1,
   num_workers: int = 4,
   **kwargs
 ) -> DataLoader:
   if dataset.lower() == "mnist":
-    return create_mnist_dataloader(data_root, batch_size, num_workers, split, **kwargs)
+    return create_mnist_dataloader("../data/", batch_size, num_workers, split, **kwargs)
   elif dataset.lower() == "imagenet":
-    return create_imagenet_dataloader(data_root, batch_size, num_workers, split, **kwargs)
+    return create_imagenet_dataloader("../data/ImageNet/", batch_size, num_workers, split, **kwargs)
   elif dataset.lower() == "cifar10":
-    return create_cifar_dataloader(data_root, batch_size, num_workers, split, **kwargs)
+    return create_cifar_dataloader("../data/", batch_size, num_workers, split, **kwargs)
   else:
     raise NotImplementedError(dataset)
-
-
-def select_random_samples(
-  labels: Union[list[int], np.ndarray], num_samples_per_label: int, seed: int = 9001
-) -> np.ndarray:
-  unique_labels = np.unique(labels)
-  selected_indices = []
-  np.random.seed(seed)
-  for label in unique_labels:
-    indices = np.where(labels == label)[0]
-    if len(indices) < num_samples_per_label:
-      raise ValueError(f"Not enough samples for label {label}. Only {len(indices)} available.")
-    selected = np.random.choice(indices, num_samples_per_label, replace=False)
-    selected_indices.extend(selected)
-  return np.array(selected_indices)
 
 
 def create_cifar_dataloader(
@@ -84,7 +66,7 @@ def create_mnist_dataloader(
   **kwargs
 ) -> DataLoader:
   transform = transforms.Compose([
-    transforms.Resize(144),
+    transforms.Resize(32),
     transforms.ToImage(),
     transforms.ToDtype(torch.float32, scale=True),
     transforms.Normalize((0.1307, ), (0.3081, ))

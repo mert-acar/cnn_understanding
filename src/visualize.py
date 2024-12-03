@@ -5,6 +5,113 @@ from pathlib import Path
 from scipy.io import loadmat
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+from utils import combine_scores
+
+def add_pos_cube(ax, l=0.4):
+  vertices = [
+    [0, 0, 0],
+    [l, 0, 0],
+    [l, l, 0],
+    [0, l, 0],
+    [0, 0, l],
+    [l, 0, l],
+    [l, l, l],
+    [0, l, l],
+  ]
+  faces = [
+    [vertices[0], vertices[1], vertices[5], vertices[4]],
+    [vertices[1], vertices[2], vertices[6], vertices[5]],
+    [vertices[2], vertices[3], vertices[7], vertices[6]],
+    [vertices[0], vertices[3], vertices[7], vertices[4]],
+    [vertices[0], vertices[1], vertices[2], vertices[3]],
+    [vertices[4], vertices[5], vertices[6], vertices[7]],
+  ]
+  cube = Poly3DCollection(faces, color='blue', alpha=0.05, edgecolor='k')
+  ax.add_collection3d(cube)
+
+
+def plot_3d_derivatives(data, cube=True):
+  l = 0.4
+  fig = plt.figure(figsize=(8, 8))
+  ax = fig.add_subplot(111, projection='3d')
+  x = np.diff(data[:, 0])
+  y = np.diff(data[:, 1])
+  z = np.diff(data[:, 2])
+  ax.scatter(x, y, z, alpha=0.7, marker='o', label=exp_path.split("/")[-2])
+  if cube:
+    add_pos_cube(ax, l)
+  ax.set_xlabel('d[silhouette]')
+  ax.set_ylabel('d[homogeneity]')
+  ax.set_zlabel('d[completeness]')
+  ax.set_xlim([-l, l])
+  ax.set_ylim([-l, l])
+  ax.set_zlim([-l, l])
+  ax.quiver(-l, 0, 0, 2 * l, 0, 0, color="black", arrow_length_ratio=0.05)
+  ax.quiver(0, -l, 0, 0, 2 * l, 0, color="black", arrow_length_ratio=0.05)
+  ax.quiver(0, 0, -l, 0, 0, 2 * l, color="black", arrow_length_ratio=0.05)
+  ax.legend()
+  plt.subplots_adjust(0, 0, 1, 1)
+  plt.show()
+
+
+def plot_combined_score(data, layers, title=""):
+  combined, _ = combine_scores(data[:, 1:])
+  _, axs = plt.subplots(2, 1, tight_layout=True, figsize=(7, 8))
+  axs[0].plot(layers, combined, label="combined feature")
+  axs[0].set_xlabel("Layers")
+  axs[0].set_xticks(layers)
+  axs[0].set_ylabel("Score")
+  axs[0].grid()
+  axs[0].set_title("Combined Score vs. Layers")
+  diff = np.diff(combined)
+  axs[1].plot(layers[1:], diff, label="combined feature")
+  axs[1].set_xlabel("Layers")
+  axs[1].set_xticks(layers[1:])
+  axs[1].set_ylabel("Score")
+  axs[1].grid()
+  axs[1].set_ylim([min(-0.02, min(diff) * 1.1), max(0.02, max(diff) * 1.1)])
+  axs[1].set_title("Derivative of Combined Score vs. Layers")
+  axs[1].axhline(y=0, linestyle="--", color='red', linewidth=2)
+  plt.subplots_adjust(0, 0, 1, 1)
+  plt.suptitle(title)
+  plt.show()
+
+
+def plot_3d_scores(data, max_var_arrow=True):
+  l = 1.5
+  fig = plt.figure(figsize=(8, 8))
+  ax = fig.add_subplot(111, projection='3d')
+  x = data[:, 0]
+  y = data[:, 1]
+  z = data[:, 2]
+  ax.scatter(x, y, z, alpha=0.7, marker='o', label=exp_path.split("/")[-2])
+  if max_var_arrow:
+    _, weights = combine_scores(data)
+    ax.quiver(
+      0,
+      0,
+      0,
+      weights[0],
+      weights[1],
+      weights[2],
+      color='r',
+      arrow_length_ratio=0.1,
+      label="direction of highest variance"
+    )
+  ax.set_xlabel('silhouette')
+  ax.set_ylabel('homogeneity')
+  ax.set_zlabel('completeness')
+  ax.set_xlim([-l, l])
+  ax.set_ylim([-l, l])
+  ax.set_zlim([-l, l])
+  ax.quiver(-l, 0, 0, 2 * l, 0, 0, color="black", arrow_length_ratio=0.05)
+  ax.quiver(0, -l, 0, 0, 2 * l, 0, color="black", arrow_length_ratio=0.05)
+  ax.quiver(0, 0, -l, 0, 0, 2 * l, color="black", arrow_length_ratio=0.05)
+  ax.legend()
+  plt.subplots_adjust(0, 0, 1, 1)
+  plt.show()
 
 
 def vis2d(activations: np.ndarray):
@@ -114,66 +221,83 @@ def main(mode: str, exp_file: str, lbl: str, threshold: float = 0.1):
 
 
 if __name__ == "__main__":
-  # from fire import Fire
-  # Fire(main)
-
   import os
-  import pickle as p
-  from sklearn import manifold
 
-  exp_dir = "../logs/customnet_run2/"
-  out_dir = os.path.join(exp_dir, "figures")
-  epoch = 33
-  os.makedirs(out_dir, exist_ok=True)
+  exp_path = "../logs/resnet18_MNIST/"
+  data_path = "clusters/spectral_custom_metric_scores.csv"
+  scores = ["silhouette", "homogeneity", "completeness", "bcss", "wcss", "chi"]
 
-  labels = loadmat("../data/labels.mat")["labels"][0]
-  with open(os.path.join(exp_dir, "clusters", f"patches_epoch_{epoch}.p"), "rb") as f:
-    cluster_data = p.load(f)
+  out_path = os.path.join(exp_path, "figures")
+  os.makedirs(out_path, exist_ok=True)
+  df = pd.read_csv(os.path.join(exp_path, data_path))
+  df["silhouette"] = (df["silhouette"] + 1) / 2
 
-  # mds = manifold.MDS(n_components=2, metric=False, max_iter=1000, eps=1e-8, n_jobs=-1)
-  mds = manifold.TSNE(n_components=2)
-  for i in range(0, 9, 2):
-    vars = [f"features.{i}_input", f"features.{i}_output"]
-    for var in vars:
-      data = loadmat(
-        os.path.join(exp_dir, "activations", f"patches_epoch_{epoch}.mat"), variable_names=[var]
-      )
-      print(var)
-      x = data[var]
-      o = 4000 // x.shape[1]
-      idx = np.random.choice(cluster_data[var]["idx"], size=o, replace=False)
-      x = x[idx]
-      l = labels[idx]
-      l = np.repeat(l, x.shape[1])
-      x = x.reshape(-1, x.shape[-1])
-      print(f"Activations: {x.shape}")
-      print(f"Labels: {l.shape}")
-      x = x - x.mean(0)
-      x = x / np.abs(x).max()
-      embedded = mds.fit_transform(x)
-      embedded = embedded / np.abs(embedded).max()
-      clusters = cluster_data[var]["cluster_labels"][:len(l)]
-      _, axs = plt.subplots(1, 2, tight_layout=True, figsize=(12, 6))
-      lim = 1.4
-      axs[0].scatter(embedded[:, 0], embedded[:, 1], c=l, alpha=0.3)
-      axs[0].grid(True)
-      axs[0].axis("equal")
-      axs[0].set_title(f"Original Labels (n = {len(set(l))})")
-      axs[0].set_xlim((-lim, lim))
-      axs[0].set_ylim((-lim, lim))
-      axs[1].scatter(embedded[:, 0], embedded[:, 1], c=clusters, alpha=0.3)
-      axs[1].grid(True)
-      axs[1].axis("equal")
-      axs[1].set_title(f"Cluster Labels (n = {len(set(clusters))})")
-      axs[1].set_xlim((-lim, lim))
-      axs[1].set_ylim((-lim, lim))
+  vars = df["layer"].unique()
+  clusters = df["n_clusters"].unique()
+  colors = mpl.color_sequences['tab10']
+  mins, maxes = [], []
+  for score in scores:
+    mins.append(df[score].min())
+    maxes.append(df[score].max())
 
-      axs[1].text(-1, 1, f"CHI: {cluster_data[var]['scores']['calinski_harabasz_score']:.3f}")
-      axs[1].text(-1, 0.88, f"Silhouette: {cluster_data[var]['scores']['silhouette']:.3f}")
-      axs[1].text(0.2, 1, f"Homogeneity: {cluster_data[var]['scores']['homogeneity']:.3f}")
-      axs[1].text(0.2, 0.88, f"Completeness: {cluster_data[var]['scores']['completeness']:.3f}")
-      plt.suptitle(var)
-      # plt.show()
-      plt.savefig(os.path.join(out_dir, var.replace(".", "_") + ".png"), bbox_inches="tight")
-      plt.clf()
-      plt.close()
+  h, w = 2, 3
+  best_idx = None
+  best_vals = {}
+  for var in vars:
+    _, axs = plt.subplots(h, w, tight_layout=True, figsize=(24, 12))
+    best_vals[var] = {}
+    data = df[df["layer"] == var]
+    for i in range(h):
+      for j in range(w):
+        flat_idx = (i * w) + j
+        score = scores[flat_idx]
+        best_idx = np.argmax(data[score])
+        best_val = data[score].tolist()[best_idx]
+        best_vals[var][score] = (best_val, clusters[best_idx])
+        axs[i, j].plot(clusters, data[score].tolist(), color=colors[flat_idx], label=score)
+        axs[i, j].plot([clusters[best_idx]], [best_val], "x", label='best')
+        axs[i, j].set_xlabel("Number of Epochs")
+        axs[i, j].set_xticks(clusters)
+        axs[i, j].set_ylabel("Score")
+        axs[i, j].set_ylim(mins[flat_idx] * 0.9, maxes[flat_idx] * 1.1)
+        axs[i, j].grid()
+        axs[i, j].legend()
+        axs[i, j].set_title(score)
+    plt.suptitle(var)
+    # plt.show()
+    plt.savefig(os.path.join(out_path, f"{var.replace('.','_')}.png"), bbox_inches="tight")
+    plt.clf()
+    plt.close("all")
+
+  _, axs = plt.subplots(h, w, tight_layout=True, figsize=(24, 12))
+  for i in range(h):
+    for j in range(w):
+      flat_idx = (i * w) + j
+      score = scores[flat_idx]
+      data = [v[score][0] for v in best_vals.values()]
+      axs[i, j].plot(vars, data, color=colors[flat_idx])
+      for k, (y, l) in enumerate(zip(data, [v[score][1] for v in best_vals.values()])):
+        axs[i, j].text(k, y, f"N={l}", ha='center', va='bottom')
+      axs[i, j].set_xlabel("Layers")
+      axs[i, j].set_xticks(vars)
+      axs[i, j].set_ylabel("Score")
+      axs[i, j].set_ylim(mins[flat_idx] * 0.9, maxes[flat_idx] * 1.1)
+      axs[i, j].grid()
+      axs[i, j].set_title(score)
+  plt.suptitle("Best Scores")
+  # plt.show()
+  plt.savefig(os.path.join(out_path, f"best.png"), bbox_inches="tight")
+  plt.clf()
+  plt.close("all")
+
+  # ------------------------------------------
+
+  # data = np.zeros((len(vars), len(scores)))
+  # for i, layer in enumerate(vars):
+  #   ldf = df[df["layer"] == layer]
+  #   for j, score in enumerate(scores):
+  #     best_idx = np.argmax(ldf["silhouette"])
+  #     data[i, j] = max(ldf[score])
+  # plot_3d_derivatives(data)
+  # plot_3d_scores(data)
+  # plot_combined_score(data, vars, exp_path.split("/")[-2])

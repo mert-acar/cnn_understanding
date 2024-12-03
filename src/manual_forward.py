@@ -16,7 +16,7 @@ if __name__ == "__main__":
   model_feat_args = [x[3:] for x in config["model_config"]["features"]]
 
   device = torch.device("cpu")
-  dataloader = create_dataloader(batch_size=1, split="test")
+  dataloader = create_dataloader("MNIST", batch_size=1, split="test")
   state = torch.load(
     os.path.join(exp_dir, "checkpoints", f"checkpoint_{epoch}.pt"),
     map_location=device,

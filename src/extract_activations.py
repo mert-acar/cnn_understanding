@@ -1,14 +1,13 @@
 import torch
 from tqdm import tqdm
 from scipy.io import savemat
-from torchvision import models
 import torch.nn.functional as F
 from typing import Union, Callable
 from collections import defaultdict
 from torch.utils.data import DataLoader
 
-from model import load_model
 from dataset import create_dataloader
+from model import load_library_model, HOOK_TARGETS
 
 hooked_activations = defaultdict(list)
 
@@ -67,91 +66,17 @@ def hook_layers(model: torch.nn.Module, targets: list[str]):
     print(f"[INFO] Hooking {target}: {target_layer}")
 
 
-
 if __name__ == "__main__":
   import os
-  from yaml import full_load
 
-  # ### CUSTOMNET MNIST ###
-  # experiment_path = "../logs/customnet_MNIST/"
-  # hook_targets = [f"features.{i}" for i in range(0, 9, 2)]
-  # out_path = os.path.join(experiment_path, "activations")
-  # os.makedirs(out_path, exist_ok=True)
-  # out_path = os.path.join(out_path, f"act_pretrained")
-  # dataloader = create_dataloader("mnist", "../data/", "test")
-  # model = load_model(experiment_path, 33)
+  model_name = "densenet121"
+  weights = "MNIST"
+  dataloader = create_dataloader(weights.lower(), "test")
+  model = load_library_model(model_name, weights, checkpoint_number=1)
 
-  # ### DENSENET121 IMAGENET ###
-  # experiment_path = "../logs/densenet121_IMAGENET/"
-  # hook_targets = ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)]
-  # out_path = os.path.join(experiment_path, "activations")
-  # os.makedirs(out_path, exist_ok=True)
-  # out_path = os.path.join(out_path, f"act_pretrained.mat")
-  # dataloader = create_dataloader("imagenet", "../data/ImageNet/", "val")
-  # model = models.densenet121(weights="DEFAULT")
-  
-  ### DENSENET121 MNSIT ###
-  experiment_path = "../logs/densenet121_MNIST/"
-  hook_targets = ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)]
+  hook_targets = HOOK_TARGETS[model_name]
+  experiment_path = f"../logs/{model_name}_{weights}/"
   out_path = os.path.join(experiment_path, "activations")
-  os.makedirs(out_path, exist_ok=True)
-  out_path = os.path.join(out_path, f"act_pretrained.mat")
-  dataloader = create_dataloader("mnist", "../data/", "test")
-  model = load_model(experiment_path, 2)
-
-  # ### RESNET18 IMAGENET ###
-  # experiment_path = "../logs/resnet18_IMAGENET/"
-  # hook_targets = ["conv1"] + [f"layer{i}.{j}" for i in range(1,5) for j in range(2)]
-  # out_path = os.path.join(experiment_path, "activations")
-  # os.makedirs(out_path, exist_ok=True)
-  # out_path = os.path.join(out_path, f"act_pretrained.mat")
-  # dataloader = create_dataloader("imagenet", "../data/ImageNet", "val")
-  # model = models.resnet18(weights="DEFAULT")
-
-  ### RESNET18 MNIST ###
-  # experiment_path = "../logs/resnet18_MNIST/"
-  # hook_targets = ["conv1"] + [f"layer{i}.{j}" for i in range(1,5) for j in range(2)]
-  # out_path = os.path.join(experiment_path, "activations")
-  # os.makedirs(out_path, exist_ok=True)
-  # out_path = os.path.join(out_path, f"act_pretrained.mat")
-  # dataloader = create_dataloader("mnist", "../data/", "test")
-  # model = load_model(experiment_path, 34)
-
-  # ### EFFICIENTNETB3 MNIST ###
-  # experiment_path = "../logs/efficientnetb3_MNIST/"
-  # hook_targets = [f"features.{i}" for i in range(1, 8)]
-  # out_path = os.path.join(experiment_path, "activations")
-  # os.makedirs(out_path, exist_ok=True)
-  # out_path = os.path.join(out_path, f"act_pretrained.mat")
-  # dataloader = create_dataloader("mnist", "../data/", "test")
-  # model = load_model(experiment_path, 8)
-
-  # ### EFFICIENTNETB3 IMAGENET ###
-  # experiment_path = "../logs/efficientnetb3_IMAGENET/"
-  # hook_targets = [f"features.{i}" for i in range(1, 8)]
-  # out_path = os.path.join(experiment_path, "activations")
-  # os.makedirs(out_path, exist_ok=True)
-  # out_path = os.path.join(out_path, f"act_pretrained.mat")
-  # dataloader = create_dataloader("imagenet", "../data/ImageNet", "val")
-  # model = models.efficientnet_b3(weights="DEFAULT")
-
-  # ### EFFICIENTNETB2 IMAGENET ###
-  # experiment_path = "../logs/efficientnetb2_IMAGENET/"
-  # hook_targets = [f"features.{i}" for i in range(1, 8)]
-  # out_path = os.path.join(experiment_path, "activations")
-  # os.makedirs(out_path, exist_ok=True)
-  # out_path = os.path.join(out_path, f"act_pretrained.mat")
-  # dataloader = create_dataloader("imagenet", "../data/ImageNet", "vak")
-  # model = models.efficientnet_b2(weights="DEFAULT")
-
-  # ### EFFICIENTNETB2 MNIST ###
-  # experiment_path = "../logs/efficientnetb2_MNIST/"
-  # hook_targets = [f"features.{i}" for i in range(1, 8)]
-  # out_path = os.path.join(experiment_path, "activations")
-  # os.makedirs(out_path, exist_ok=True)
-  # out_path = os.path.join(out_path, f"act_pretrained.mat")
-  # dataloader = create_dataloader("mnist", "../data/", "test")
-  # model = load_model(experiment_path, 8)
 
   hook_layers(model, hook_targets)
   forward_pass(model, dataloader)
