@@ -224,7 +224,7 @@ if __name__ == "__main__":
   import os
 
   exp_path = "../logs/resnet18_MNIST/"
-  data_path = "clusters/spectral_custom_metric_scores.csv"
+  data_path = "clusters/channel_neuron_scores.csv"
   scores = ["silhouette", "homogeneity", "completeness", "bcss", "wcss", "chi"]
 
   out_path = os.path.join(exp_path, "figures")

@@ -17,7 +17,6 @@ def bcss_wcss(x: np.ndarray,
     mean_k = np.mean(cluster_k, axis=0)
     extra_disp += len(cluster_k) * np.sum((mean_k - mean)**2)
     intra_disp += np.sum((cluster_k - mean_k)**2)
-
   if return_chi:
     chi = extra_disp * (len(x) - n_labels) / (intra_disp * (n_labels - 1.0))
     return extra_disp, intra_disp, chi
@@ -73,7 +72,6 @@ def performance_scores(data: np.ndarray, cluster_labels: np.ndarray, labels: np.
     "completeness": metrics.completeness_score(labels, cluster_labels),
     "v_measure": metrics.v_measure_score(labels, cluster_labels),
     "mutual_information": metrics.adjusted_mutual_info_score(labels, cluster_labels),
-    "num_clusters": len(np.unique(cluster_labels[cluster_labels != -1])),
   }
 
 
@@ -86,6 +84,8 @@ if __name__ == "__main__":
   import pickle as p
   import pandas as pd
   from time import time
+  import matplotlib as mpl
+  import matplotlib.pyplot as plt
   from collections import defaultdict
   from scipy.io import loadmat, savemat
   from scipy.spatial.distance import cdist
@@ -96,21 +96,22 @@ if __name__ == "__main__":
 
   model_name = "resnet18"
   dataset = "MNIST"
+  identifier = "channel_neuron_max"
   idx = None
   labels = load_MNIST_labels()
-  
-  # idx = select_random_samples(labels, 700)
+
+  idx = select_random_samples(labels, 700)
 
   exp_dir = f"../logs/{model_name}_{dataset}"
   out_path = os.path.join(exp_dir, "clusters")
   os.makedirs(out_path, exist_ok=True)
 
   vars = HOOK_TARGETS[model_name]
-  if idx:
+  if idx is not None:
     labels = labels[idx]
 
   method = cluster.SpectralClustering
-  l, h = 6, 24
+  low, high = 2, 15
   param = {
     "affinity": "precomputed",
     "n_jobs": -1,
@@ -125,30 +126,32 @@ if __name__ == "__main__":
   for var in vars:
     print(var, "\n----------------")
     out[var] = []
-
     x = loadmat(
       os.path.join(exp_dir, "activations", f"act_pretrained.mat"), variable_names=[var]
     )[var]
-
     if idx is not None:
       x = x[idx]
 
-    x = x.reshape(x.shape[0], -1)
+    # x = x.reshape(x.shape[0], -1)
+
+    x = x.max(-2).max(-1)
     x = x - x.mean(0)
     x = x / np.abs(x).max()
+    print(f"Data shape: {x.shape}")
 
-    print(f"Before PCA: {x.shape}")
-    o = x.shape[-1]
-    tick = time()
-    x = pca_reduction(x, n_components=None, threshold=0.95)
-    print(f"PCA took {time() - tick:.3f} seconds")
-    r = x.shape[-1]
-    print(f"After PCA: {x.shape}")
+    # print(f"Before PCA: {x.shape}")
+    # o = x.shape[-1]
+    # tick = time()
+    # x = pca_reduction(x, n_components=None, threshold=0.95)
+    # print(f"PCA took {time() - tick:.3f} seconds")
+    # r = x.shape[-1]
+    # print(f"After PCA: {x.shape}")
 
     os.makedirs(os.path.join(exp_dir, "clusters"), exist_ok=True)
     affinity_path = os.path.join(
-      exp_dir, "clusters", f"{var.replace('.', '_')}_custom_metric_affinity.mat"
+      exp_dir, "clusters", f"{var.replace('.', '_')}_{identifier}_affinity.mat"
     )
+
     if os.path.exists(affinity_path):
       affinity = loadmat(affinity_path)["affinity"]
     else:
@@ -158,7 +161,7 @@ if __name__ == "__main__":
       print(f"Affinity matrix is calculated in {time() - tick:.3f} seconds")
       savemat(affinity_path, {"affinity": affinity})
 
-    for n in range(l, h):
+    for n in range(low, high):
       tick = time()
       algo = method(n_clusters=n, **param)
       cluster_labels = algo.fit(affinity).labels_
@@ -176,8 +179,6 @@ if __name__ == "__main__":
       })
       scores["layer"].append(var)
       scores["metric"].append("custom")
-      scores["original_dim"].append(o)
-      scores["reduced_dim"].append(r)
       scores["n_clusters"].append(n)
       scores["silhouette"].append(s)
       scores["homogeneity"].append(h)
@@ -187,12 +188,78 @@ if __name__ == "__main__":
       scores["wcss"].append(wcss)
 
       print(
-        f"\t + N: {n}, Affinity: {param['affinity']}, -> Homogeneity Score: {h:.3f} | Completeness Score: {c:.3f} | Silhouette Score: {s:.3f} | time: {t:.3f}s"
+        f"\t + N: {n}, Affinity: {param['affinity']} -> Homogeneity Score: {h:.3f} | Completeness Score: {c:.3f} | Silhouette Score: {s:.3f} | time: {t:.3f}s"
       )
     print()
 
-  with open(os.path.join(out_path, "spectral_custom_metric.p"), "wb") as f:
+  with open(os.path.join(out_path, f"{identifier}.p"), "wb") as f:
     p.dump(out, f, protocol=p.HIGHEST_PROTOCOL)
 
   df = pd.DataFrame(scores)
-  df.to_csv(os.path.join(out_path, "spectral_custom_metric_scores.csv"))
+  df.to_csv(os.path.join(out_path, f"{identifier}_scores.csv"))
+
+  scores = ["silhouette", "homogeneity", "completeness", "bcss", "wcss", "chi"]
+
+  out_path = os.path.join(exp_dir, "figures")
+  os.makedirs(out_path, exist_ok=True)
+
+  df["silhouette"] = (df["silhouette"] + 1) / 2
+
+  vars = df["layer"].unique()
+  clusters = df["n_clusters"].unique()
+  colors = mpl.color_sequences['tab10']
+  mins, maxes = [], []
+  for score in scores:
+    mins.append(df[score].min())
+    maxes.append(df[score].max())
+
+  h, w = 2, 3
+  best_idx = None
+  best_vals = {}
+  for var in vars:
+    _, axs = plt.subplots(h, w, tight_layout=True, figsize=(24, 12))
+    best_vals[var] = {}
+    data = df[df["layer"] == var]
+    for i in range(h):
+      for j in range(w):
+        flat_idx = (i * w) + j
+        score = scores[flat_idx]
+        best_idx = np.argmax(data[score])
+        best_val = data[score].tolist()[best_idx]
+        best_vals[var][score] = (best_val, clusters[best_idx])
+        axs[i, j].plot(clusters, data[score].tolist(), color=colors[flat_idx], label=score)
+        axs[i, j].plot([clusters[best_idx]], [best_val], "x", label='best')
+        axs[i, j].set_xlabel("Number of Epochs")
+        axs[i, j].set_xticks(clusters)
+        axs[i, j].set_ylabel("Score")
+        axs[i, j].set_ylim(mins[flat_idx] * 0.9, maxes[flat_idx] * 1.1)
+        axs[i, j].grid()
+        axs[i, j].legend()
+        axs[i, j].set_title(score)
+    plt.suptitle(var)
+    # plt.show()
+    plt.savefig(os.path.join(out_path, f"{var.replace('.','_')}_{identifier}.png"), bbox_inches="tight")
+    plt.clf()
+    plt.close("all")
+
+  _, axs = plt.subplots(h, w, tight_layout=True, figsize=(24, 12))
+  for i in range(h):
+    for j in range(w):
+      flat_idx = (i * w) + j
+      score = scores[flat_idx]
+      data = [v[score][0] for v in best_vals.values()]
+      axs[i, j].plot(vars, data, color=colors[flat_idx])
+      for k, (y, l) in enumerate(zip(data, [v[score][1] for v in best_vals.values()])):
+        axs[i, j].text(k, y, f"N={l}", ha='center', va='bottom')
+      axs[i, j].set_xlabel("Layers")
+      axs[i, j].set_xticks(vars)
+      axs[i, j].set_ylabel("Score")
+      axs[i, j].set_ylim(mins[flat_idx] * 0.9, maxes[flat_idx] * 1.1)
+      axs[i, j].grid()
+      axs[i, j].set_title(score)
+  plt.suptitle("Best Scores")
+  # plt.show()
+  plt.savefig(os.path.join(out_path, f"best_{identifier}.png"), bbox_inches="tight")
+  plt.clf()
+  plt.close("all")
+
