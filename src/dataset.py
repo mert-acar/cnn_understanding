@@ -8,16 +8,14 @@ import torchvision.datasets as datasets
 import torchvision.transforms.v2 as transforms
 
 IMAGENET_CLASS_IDX = [
-  37, 55, 69, 256, 259, 275, 308, 525, 551, 577, 582, 620, 630, 647, 649, 676, 729, 776, 839, 914
+  4, 17, 28, 43, 49, 59, 76, 78, 91, 101, 102, 137, 180, 183, 209, 211, 218, 276, 286, 288, 329,
+  334, 338, 372, 378, 425, 471, 508, 510, 517, 547, 569, 594, 610, 612, 642, 655, 698, 714, 717,
+  772, 815, 920, 925, 931, 950, 951, 959, 973, 985
 ]
 
 
 def create_dataloader(
-  dataset: str,
-  split: str,
-  batch_size: int = 1,
-  num_workers: int = 4,
-  **kwargs
+  dataset: str, split: str, batch_size: int = 1, num_workers: int = 4, **kwargs
 ) -> DataLoader:
   if dataset.lower() == "mnist":
     return create_mnist_dataloader("../data/", batch_size, num_workers, split, **kwargs)

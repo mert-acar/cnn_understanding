@@ -50,8 +50,8 @@ def create_model(model_name: str, config: dict, in_ch: int = 1) -> nn.Module:
     model = ConvNet(config)
   elif model_name.lower() == "resnet18":
     model = models.get_model(model_name, **config)
-    model.conv1 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)
-    model.fc = nn.Linear(512, 10, bias=True)
+    # model.conv1 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)
+    # model.fc = nn.Linear(512, 10, bias=True)
   elif model_name.lower() == "densenet121":
     model = models.get_model(model_name, **config)
     model.features.conv0 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)

@@ -10,6 +10,10 @@ from typing import List, Union
 from dataset import create_dataloader
 
 
+def load_ImageNet_labels() -> np.ndarray:
+  return np.array(create_dataloader("imagenet", "val").dataset.targets)
+
+
 def load_CIFAR10_labels() -> np.ndarray:
   return np.array(create_dataloader("cifar10", "test").dataset.targets)
 
@@ -46,6 +50,12 @@ def select_random_samples(
 def normalize(x: np.ndarray, axis: int = 0, eps: float = 1e-12) -> np.ndarray:
   norm = np.linalg.norm(x, axis=axis, keepdims=True)
   return x / (norm + eps)
+
+
+def rescale(x: np.ndarray) -> np.ndarray:
+  x = x - x.min()
+  x = x / x.max()
+  return x
 
 
 def extract_epoch(key: str) -> int:

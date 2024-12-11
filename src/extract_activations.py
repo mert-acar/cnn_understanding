@@ -1,6 +1,5 @@
 import torch
 from tqdm import tqdm
-from scipy.io import savemat
 import torch.nn.functional as F
 from typing import Union, Callable
 from collections import defaultdict
@@ -68,10 +67,11 @@ def hook_layers(model: torch.nn.Module, targets: list[str]):
 
 if __name__ == "__main__":
   import os
+  import pickle as p
 
-  model_name = "densenet121"
-  weights = "MNIST"
-  dataloader = create_dataloader(weights.lower(), "test")
+  model_name = "resnet18"
+  weights = "IMAGENET"
+  dataloader = create_dataloader(weights.lower(), "val")
   model = load_library_model(model_name, weights, checkpoint_number=1)
 
   hook_targets = HOOK_TARGETS[model_name]
@@ -83,4 +83,5 @@ if __name__ == "__main__":
   for key in hooked_activations:
     hooked_activations[key] = torch.cat(hooked_activations[key], 0)
     print(key, "→", hooked_activations[key].shape)
-  savemat(out_path, hooked_activations)
+    with open(os.path.join(out_path, f"{key.replace('.', '_')}_act.p"), "wb") as f:
+      p.dump(hooked_activations[key], f, protocol=p.HIGHEST_PROTOCOL)

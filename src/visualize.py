@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
@@ -7,7 +8,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from utils import combine_scores
+from utils import combine_scores, closest_factors
 
 def add_pos_cube(ax, l=0.4):
   vertices = [
@@ -220,31 +221,23 @@ def main(mode: str, exp_file: str, lbl: str, threshold: float = 0.1):
     vis3d(activations)
 
 
-if __name__ == "__main__":
-  import os
-
-  exp_path = "../logs/resnet18_MNIST/"
-  data_path = "clusters/channel_neuron_scores.csv"
-  scores = ["silhouette", "homogeneity", "completeness", "bcss", "wcss", "chi"]
-
-  out_path = os.path.join(exp_path, "figures")
-  os.makedirs(out_path, exist_ok=True)
-  df = pd.read_csv(os.path.join(exp_path, data_path))
-  df["silhouette"] = (df["silhouette"] + 1) / 2
+def plot_scores(df, identifier, out_path):
+  scores = df.columns[3:]
+  print(scores)
 
   vars = df["layer"].unique()
-  clusters = df["n_clusters"].unique()
+  clusters = df["k"].unique()
   colors = mpl.color_sequences['tab10']
   mins, maxes = [], []
   for score in scores:
     mins.append(df[score].min())
     maxes.append(df[score].max())
 
-  h, w = 2, 3
+  h, w = closest_factors(len(scores))
   best_idx = None
   best_vals = {}
   for var in vars:
-    _, axs = plt.subplots(h, w, tight_layout=True, figsize=(24, 12))
+    _, axs = plt.subplots(h, w, tight_layout=True, figsize=(24, 12), squeeze= False)
     best_vals[var] = {}
     data = df[df["layer"] == var]
     for i in range(h):
@@ -264,12 +257,11 @@ if __name__ == "__main__":
         axs[i, j].legend()
         axs[i, j].set_title(score)
     plt.suptitle(var)
-    # plt.show()
-    plt.savefig(os.path.join(out_path, f"{var.replace('.','_')}.png"), bbox_inches="tight")
+    plt.savefig(os.path.join(out_path, f"{var.replace('.','_')}_{identifier}.png"), bbox_inches="tight")
     plt.clf()
     plt.close("all")
 
-  _, axs = plt.subplots(h, w, tight_layout=True, figsize=(24, 12))
+  _, axs = plt.subplots(h, w, tight_layout=True, figsize=(24, 12), squeeze=False)
   for i in range(h):
     for j in range(w):
       flat_idx = (i * w) + j
@@ -285,10 +277,26 @@ if __name__ == "__main__":
       axs[i, j].grid()
       axs[i, j].set_title(score)
   plt.suptitle("Best Scores")
-  # plt.show()
-  plt.savefig(os.path.join(out_path, f"best.png"), bbox_inches="tight")
+  plt.savefig(os.path.join(out_path, f"best_{identifier}.png"), bbox_inches="tight")
   plt.clf()
   plt.close("all")
+
+
+if __name__ == "__main__":
+  import os
+
+  model_name = "resnet18"
+  dataset = "IMAGENET"
+  identifier = "kmeans"
+  exp_dir = f"../logs/{model_name}_{dataset}"
+  data_path = f"clusters/{identifier}_scores.csv"
+  out_path = os.path.join(exp_dir, "figures")
+  os.makedirs(out_path, exist_ok=True)
+
+  df = pd.read_csv(os.path.join(exp_dir, data_path))
+  df["silhouette"] = (df["silhouette"] + 1) / 2
+  plot_scores(df, identifier, out_path)
+
 
   # ------------------------------------------
 
