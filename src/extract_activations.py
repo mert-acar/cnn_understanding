@@ -6,7 +6,6 @@ from collections import defaultdict
 from torch.utils.data import DataLoader
 
 from dataset import create_dataloader
-from model import load_library_model, HOOK_TARGETS
 
 hooked_activations = defaultdict(list)
 
@@ -68,20 +67,24 @@ def hook_layers(model: torch.nn.Module, targets: list[str]):
 if __name__ == "__main__":
   import os
   import pickle as p
+  from model import load_model, HOOK_TARGETS
 
   model_name = "resnet18"
   weights = "MNIST"
   dataloader = create_dataloader(weights.lower(), "test")
-  model = load_library_model(model_name, weights, checkpoint_number=34)
+  # experiment_path = f"../logs/{model_name}_{weights}/"
+  experiment_path = f"../logs/{model_name}_{weights}_CIL/"
 
+  model = load_model(experiment_path, checkpoint_number=6)
   hook_targets = HOOK_TARGETS[model_name]
-  experiment_path = f"../logs/{model_name}_{weights}/"
   out_path = os.path.join(experiment_path, "activations")
+  os.makedirs(out_path, exist_ok=True)
 
   hook_layers(model, hook_targets)
   forward_pass(model, dataloader)
+
   for key in hooked_activations:
-    hooked_activations[key] = torch.cat(hooked_activations[key], 0)
+    hooked_activations[key] = torch.cat(hooked_activations[key], 0).cpu().numpy()
     print(key, "→", hooked_activations[key].shape)
     with open(os.path.join(out_path, f"{key.replace('.', '_')}_act.p"), "wb") as f:
       p.dump(hooked_activations[key], f, protocol=p.HIGHEST_PROTOCOL)

@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
   model_name = "resnet18"
   dataset = "MNIST"
-  identifier = "mlr"
+  identifier = "kmeans"
   low, high = 5, 15
   idx = None
   if dataset == "MNIST":
@@ -82,7 +82,7 @@ if __name__ == "__main__":
   if idx is not None:
     labels = labels[idx]
 
-  exp_dir = f"../logs/{model_name}_{dataset}"
+  exp_dir = f"../logs/{model_name}_{dataset}_CIL"
   out_path = os.path.join(exp_dir, "clusters")
   os.makedirs(out_path, exist_ok=True)
 
@@ -116,13 +116,12 @@ if __name__ == "__main__":
       x = PCA(n_components=0.95, whiten=True).fit_transform(x)
       print(f"PCA took {time() - tick:.3f} seconds")
       print(f"After PCA: {x.shape}")
-      x = normalize(x, norm='l2', axis=1)
+      # x = normalize(x, norm='l2', axis=1)
       with open(file_path, "wb") as f:
         p.dump(x, f, protocol=p.HIGHEST_PROTOCOL)
 
     for k in tqdm(range(low, high)):
-      cluster_labels = train_mlr(x, k)
-      # cluster_labels = cluster.MiniBatchKMeans(n_clusters=k, batch_size=2048).fit_predict(x)
+      cluster_labels = cluster.MiniBatchKMeans(n_clusters=k, batch_size=2048).fit_predict(x)
       perf = {
         "k": k,
         "silhouette": metrics.silhouette_score(x, cluster_labels),

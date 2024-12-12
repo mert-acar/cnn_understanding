@@ -21,7 +21,7 @@ def group_lasso_penalty(model: torch.nn.Module):
 
 
 def cluster_inducing_loss(preds: torch.Tensor):
-  pred = torch.nn.functional.softmax(preds, dim=1)
+  pred = F.softmax(preds, dim=1)
   k = pred.shape[-1]
   ri = torch.sqrt(torch.sum(pred, dim=0))
   num = pred / ri
@@ -95,7 +95,7 @@ def main(config_path: str):
             if group_lasso_coef is not None:
               loss += group_lasso_coef * group_lasso_penalty(model)
             if cil:
-              loss += cluster_inducing_loss(pred)
+              loss += cluster_inducing_loss(output)
             loss.backward()
             optimizer.step()
 
