@@ -20,6 +20,15 @@ def group_lasso_penalty(model: torch.nn.Module):
   return penalty
 
 
+def cluster_inducing_loss(pred: torch.Tensor):
+  k = pred.shape[-1]
+  ri = torch.sqrt(torch.sum(pred, dim=0))
+  num = pred / ri
+  q = num / torch.sum(num, dim=0)
+  loss = -1 * torch.mean(q * torch.log(pred)) / k
+  return loss
+
+
 def main(config_path: str):
   with open(config_path, "r") as f:
     config = full_load(f)
@@ -46,7 +55,7 @@ def main(config_path: str):
   }
 
   model = create_model(**config["model"]).to(device)
-  optimizer = torch.optim.Adam(
+  optimizer = torch.optim.AdamW(
     model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
   )
   scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -55,6 +64,7 @@ def main(config_path: str):
   criterion = torch.nn.CrossEntropyLoss()
 
   group_lasso_coef = config["group_lasso_coef"]
+  cil = config["cil"]
 
   tick = time()
   best_epoch = -1
@@ -83,6 +93,8 @@ def main(config_path: str):
           if phase == "train":
             if group_lasso_coef is not None:
               loss += group_lasso_coef * group_lasso_penalty(model)
+            if cil:
+              loss += cluster_inducing_loss(pred)
             loss.backward()
             optimizer.step()
 

@@ -70,9 +70,9 @@ if __name__ == "__main__":
   import pickle as p
 
   model_name = "resnet18"
-  weights = "IMAGENET"
-  dataloader = create_dataloader(weights.lower(), "val")
-  model = load_library_model(model_name, weights, checkpoint_number=1)
+  weights = "MNIST"
+  dataloader = create_dataloader(weights.lower(), "test")
+  model = load_library_model(model_name, weights, checkpoint_number=34)
 
   hook_targets = HOOK_TARGETS[model_name]
   experiment_path = f"../logs/{model_name}_{weights}/"

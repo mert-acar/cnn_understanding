@@ -13,7 +13,6 @@ HOOK_TARGETS = {
   "efficientnet_b3": [f"features.{i}" for i in range(1, 8)]
 }
 
-
 def load_library_model(model_name: str, weights: str = "", **kwargs: dict) -> nn.Module:
   if model_name == "customnet":
     return load_model(f"../logs/{model_name}_{weights.upper()}", kwargs.get("checkpoint_number", 33))
@@ -50,8 +49,8 @@ def create_model(model_name: str, config: dict, in_ch: int = 1) -> nn.Module:
     model = ConvNet(config)
   elif model_name.lower() == "resnet18":
     model = models.get_model(model_name, **config)
-    # model.conv1 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)
-    # model.fc = nn.Linear(512, 10, bias=True)
+    model.conv1 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)
+    model.fc = nn.Linear(512, 10, bias=True)
   elif model_name.lower() == "densenet121":
     model = models.get_model(model_name, **config)
     model.features.conv0 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)

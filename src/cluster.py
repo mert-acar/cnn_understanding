@@ -58,16 +58,17 @@ if __name__ == "__main__":
   from tabulate import tabulate
   from collections import defaultdict
   from sklearn.decomposition import PCA
-  from scipy.io import loadmat, savemat
   from sklearn.preprocessing import normalize
 
+  from mlr import train_mlr
   from model import HOOK_TARGETS
   from visualize import plot_scores
   from utils import load_ImageNet_labels, load_MNIST_labels, load_CIFAR10_labels
 
   model_name = "resnet18"
-  dataset = "IMAGENET"
-  identifier = "kmeans_50"
+  dataset = "MNIST"
+  identifier = "mlr"
+  low, high = 5, 15
   idx = None
   if dataset == "MNIST":
     labels = load_MNIST_labels()
@@ -86,11 +87,10 @@ if __name__ == "__main__":
   os.makedirs(out_path, exist_ok=True)
 
   vars = HOOK_TARGETS[model_name]
-  low, high = 40, 60
 
   scores = defaultdict(list)
   print(f"+ Working on: {exp_dir}")
-  for var in vars[1:]:
+  for var in vars:
     out = defaultdict(list)
     print(var, "\n----------------")
     file_path = os.path.join(out_path, f"{var.replace('.', '_')}.p")
@@ -98,11 +98,12 @@ if __name__ == "__main__":
       with open(file_path, "rb") as f:
         x = p.load(f)
     else:
-      # with open(os.path.join(exp_dir, "activations", f"{var.replace('.', '_')}_act.p"), "rb") as f:
-      #   x = p.load(f)
-      x = torch.load(
-        os.path.join(exp_dir, "activations", f"{var.replace('.', '_')}_act.pt"), weights_only=False
-      ).numpy()
+      with open(os.path.join(exp_dir, "activations", f"{var.replace('.', '_')}_act.p"), "rb") as f:
+        x = p.load(f)
+
+      # x = torch.load(
+      #   os.path.join(exp_dir, "activations", f"{var.replace('.', '_')}_act.pt"), weights_only=False
+      # ).numpy()
 
       if idx is not None:
         x = x[idx]
@@ -120,7 +121,8 @@ if __name__ == "__main__":
         p.dump(x, f, protocol=p.HIGHEST_PROTOCOL)
 
     for k in tqdm(range(low, high)):
-      cluster_labels = cluster.MiniBatchKMeans(n_clusters=k, batch_size=2048).fit_predict(x)
+      cluster_labels = train_mlr(x, k)
+      # cluster_labels = cluster.MiniBatchKMeans(n_clusters=k, batch_size=2048).fit_predict(x)
       perf = {
         "k": k,
         "silhouette": metrics.silhouette_score(x, cluster_labels),
