@@ -69,12 +69,15 @@ if __name__ == "__main__":
   import pickle as p
   from model import load_model, HOOK_TARGETS
 
-  model_name = "efficientnetb3"
+  model_name = "resnet18"
   weights = "MNIST"
   dataloader = create_dataloader(weights.lower(), "test")
 
-  experiment_path = f"../logs/{model_name}_{weights}_CIL/"
+  experiment_path = f"../logs/{model_name}_{weights}_RDE/"
   model = load_model(experiment_path, checkpoint_number=6)
+
+  # experiment_path = f"../logs/{model_name}_{weights}_CIL/"
+  # model = load_model(experiment_path, checkpoint_number=6)
 
   # experiment_path = f"../logs/{model_name}_{weights}/"
   # model = load_model(experiment_path, checkpoint_number=8)

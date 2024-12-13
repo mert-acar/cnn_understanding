@@ -26,8 +26,11 @@ if __name__ == "__main__":
       os.path.join(
         f"../logs/{model_name}_{weights}/", "activations", f'{layer.replace(".", "_")}_act.p'
       ),
+      # os.path.join(
+      #   f"../logs/{model_name}_{weights}_CIL/", "activations", f'{layer.replace(".", "_")}_act.p'
+      # ),
       os.path.join(
-        f"../logs/{model_name}_{weights}_CIL/", "activations", f'{layer.replace(".", "_")}_act.p'
+        f"../logs/{model_name}_{weights}_RDE/", "activations", f'{layer.replace(".", "_")}_act.p'
       ),
     ]
     fig = plt.figure(figsize=(18, 7), tight_layout=True)

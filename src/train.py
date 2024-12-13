@@ -169,6 +169,12 @@ def main(config_path: str):
               loss += 0.1 * contrastive_loss(l2, target)
               loss += 0.1 * contrastive_loss(l3, target)
               loss += 0.1 * contrastive_loss(l4, target)
+            if rde:
+              loss += 0.1 * regularized_discriminative_embedding_loss(conv1, target)
+              loss += 0.1 * regularized_discriminative_embedding_loss(l1, target)
+              loss += 0.1 * regularized_discriminative_embedding_loss(l2, target)
+              loss += 0.1 * regularized_discriminative_embedding_loss(l3, target)
+              loss += 0.1 * regularized_discriminative_embedding_loss(l4, target)
             loss.backward()
             optimizer.step()
 
