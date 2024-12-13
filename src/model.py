@@ -9,8 +9,8 @@ HOOK_TARGETS = {
   "customnet": [f"features.{i}" for i in range(0, 9, 2)],
   "densenet121": ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)],
   "resnet18": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)],
-  "efficientnet_b2": [f"features.{i}" for i in range(1, 8)],
-  "efficientnet_b3": [f"features.{i}" for i in range(1, 8)]
+  "efficientnetb2": [f"features.{i}" for i in range(1, 8)],
+  "efficientnetb3": [f"features.{i}" for i in range(1, 8)]
 }
 
 def load_library_model(model_name: str, weights: str = "", **kwargs: dict) -> nn.Module:

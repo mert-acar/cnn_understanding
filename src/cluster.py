@@ -3,7 +3,7 @@ import pickle as p
 import numpy as np
 from tqdm import tqdm
 from typing import Tuple, Optional
-from sklearn import metrics, cluster
+from sklearn import metrics, cluster, mixture
 from scipy.optimize import linear_sum_assignment
 
 
@@ -58,7 +58,6 @@ if __name__ == "__main__":
   from tabulate import tabulate
   from collections import defaultdict
   from sklearn.decomposition import PCA
-  from sklearn.preprocessing import normalize
 
   from mlr import train_mlr
   from model import HOOK_TARGETS
@@ -67,7 +66,7 @@ if __name__ == "__main__":
 
   model_name = "resnet18"
   dataset = "MNIST"
-  identifier = "kmeans"
+  identifier = "spectral_pca3"
   low, high = 5, 15
   idx = None
   if dataset == "MNIST":
@@ -82,7 +81,8 @@ if __name__ == "__main__":
   if idx is not None:
     labels = labels[idx]
 
-  exp_dir = f"../logs/{model_name}_{dataset}_CIL"
+  exp_dir = f"../logs/{model_name}_{dataset}/"
+  # exp_dir = f"../logs/{model_name}_{dataset}_CIL/"
   out_path = os.path.join(exp_dir, "clusters")
   os.makedirs(out_path, exist_ok=True)
 
@@ -93,17 +93,16 @@ if __name__ == "__main__":
   for var in vars:
     out = defaultdict(list)
     print(var, "\n----------------")
-    file_path = os.path.join(out_path, f"{var.replace('.', '_')}.p")
-    if os.path.exists(file_path):
-      with open(file_path, "rb") as f:
-        x = p.load(f)
-    else:
+    # file_path = os.path.join(out_path, f"{var.replace('.', '_')}_pca3.p")
+
+    # [N, C, H, W] -> [N, C*H*W]
+    # if os.path.exists(file_path):
+    #   with open(file_path, "rb") as f:
+    #     x = p.load(f)
+    # else:
+    if True:
       with open(os.path.join(exp_dir, "activations", f"{var.replace('.', '_')}_act.p"), "rb") as f:
         x = p.load(f)
-
-      # x = torch.load(
-      #   os.path.join(exp_dir, "activations", f"{var.replace('.', '_')}_act.pt"), weights_only=False
-      # ).numpy()
 
       if idx is not None:
         x = x[idx]
@@ -113,15 +112,29 @@ if __name__ == "__main__":
 
       print(f"Before PCA: {x.shape}")
       tick = time()
-      x = PCA(n_components=0.95, whiten=True).fit_transform(x)
+      x = PCA(n_components=3, whiten=True).fit_transform(x)
+      # x = PCA(n_components=0.95, whiten=True).fit_transform(x)
       print(f"PCA took {time() - tick:.3f} seconds")
       print(f"After PCA: {x.shape}")
-      # x = normalize(x, norm='l2', axis=1)
-      with open(file_path, "wb") as f:
-        p.dump(x, f, protocol=p.HIGHEST_PROTOCOL)
+      # with open(file_path, "wb") as f:
+      #   p.dump(x, f, protocol=p.HIGHEST_PROTOCOL)
 
     for k in tqdm(range(low, high)):
-      cluster_labels = cluster.MiniBatchKMeans(n_clusters=k, batch_size=2048).fit_predict(x)
+      # cluster_labels = train_mlr(x, k)
+
+      # cluster_labels = cluster.MiniBatchKMeans(n_clusters=k, batch_size=2048).fit_predict(x)
+
+      # cluster_labels = mixture.GaussianMixture(n_components=k).fit_predict(x)
+
+      cluster_labels = cluster.SpectralClustering(
+        n_clusters=k,
+        eigen_solver="amg",
+        affinity="nearest_neighbors",
+        n_neighbors=10,
+        assign_labels="cluster_qr",
+        n_jobs=-1
+      ).fit_predict(x)
+
       perf = {
         "k": k,
         "silhouette": metrics.silhouette_score(x, cluster_labels),

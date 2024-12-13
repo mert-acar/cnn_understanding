@@ -28,7 +28,7 @@ def lr_loss(pred):
   return loss
 
 
-def train_mlr(x, k, dev="mps", lr=0.5, n_epochs=200, patience=5):
+def train_mlr(x, k, dev="mps", lr=0.005, n_epochs=2000, patience=5):
   device = torch.device(dev)
   model = MultinomialLogisticRegression(x.shape[1], k).to(dev)
   model.train()
@@ -38,12 +38,20 @@ def train_mlr(x, k, dev="mps", lr=0.5, n_epochs=200, patience=5):
   best_loss = float('inf')
   patience_counter = 0
   
-  # for epoch in tqdm(range(n_epochs)):
+  # pbar = tqdm(range(n_epochs))
+  # for epoch in pbar:
   for epoch in range(n_epochs):
     optimizer.zero_grad()
     pred = model(x)
     loss = lr_loss(pred)
-    print(f"epoch: {epoch} | loss: {loss.item() * 1e6:.4f}")
+    if torch.isnan(loss):
+      for g in optimizer.param_groups:
+        g['lr'] = g['lr'] * 0.5
+      continue
+
+    # pbar.set_description(f"Loss: {loss.item() * 1e6:.4f}")
+    # print(f"epoch: {epoch} | loss: {loss.item() * 1e6:.4f}")
+    
     loss.backward()
     optimizer.step()
     

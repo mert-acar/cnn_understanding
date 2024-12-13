@@ -30,6 +30,26 @@ def cluster_inducing_loss(preds: torch.Tensor):
   return loss
 
 
+def contrastive_loss(embeddings, labels, margin=1.0):
+  batch_size = embeddings.size(0)
+  loss = 0.0
+  embeddings = embeddings.reshape(batch_size, -1)
+
+  # Compute pairwise distances
+  distances = torch.cdist(embeddings, embeddings, p=2)  # Shape: (batch_size, batch_size)
+
+  # Create a mask for same-class pairs
+  labels = labels.unsqueeze(1)  # Shape: (batch_size, 1)
+  same_class = (labels == labels.T).float()  # Shape: (batch_size, batch_size)
+
+  # Contrastive loss components
+  positive_loss = same_class * (distances ** 2)
+  negative_loss = (1 - same_class) * torch.clamp(margin - distances, min=0) ** 2
+
+  # Average over all pairs
+  loss = (positive_loss.sum() + negative_loss.sum()) / (batch_size * (batch_size - 1))
+  return loss
+
 def main(config_path: str):
   with open(config_path, "r") as f:
     config = full_load(f)
@@ -66,6 +86,7 @@ def main(config_path: str):
 
   group_lasso_coef = config["group_lasso_coef"]
   cil = config["cil"]
+  contrastive = config["contrastive"]
 
   tick = time()
   best_epoch = -1
@@ -86,7 +107,19 @@ def main(config_path: str):
         for data, target in pbar:
           data, target = data.to(device), target.to(device)
           optimizer.zero_grad()
-          output = model(data)
+          # output = model(data)
+
+          # RESNET18
+          features = model.features(data)
+          output = model.fc(model.avgpool(features))
+
+          # DENSENET121
+          # features = model.features(data)
+          # output = F.relu(features, inplace=True)
+          # output = F.adaptive_avg_pool2d(output, (1, 1))
+          # output = torch.flatten(output, 1)
+          # output = model.classifier(output)
+
           pred = F.log_softmax(output, dim=1)
           acc = pred.argmax(1).eq(target).sum().item() / data.shape[0]
 
@@ -96,6 +129,8 @@ def main(config_path: str):
               loss += group_lasso_coef * group_lasso_penalty(model)
             if cil:
               loss += cluster_inducing_loss(output)
+            if contrastive:
+              loss += 0.1 * contrastive_loss(features, target)
             loss.backward()
             optimizer.step()
 
