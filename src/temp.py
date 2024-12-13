@@ -11,7 +11,7 @@ from utils import load_MNIST_labels
 if __name__ == "__main__":
   labels = load_MNIST_labels()
 
-  model_name = "efficientnetb3"
+  model_name = "resnet18"
   weights = "MNIST"
   layers = HOOK_TARGETS[model_name]
 
@@ -49,9 +49,10 @@ if __name__ == "__main__":
       ax.set_xlabel("PC1")
       ax.set_ylabel("PC2")
       ax.set_zlabel("PC3")
-      ax.set_title(titles[i].format(layer=layer, ev=sum(pca.explained_variance_ratio_)))
+      ax.set_title(titles[i].format(layer=layer, ev=100 * sum(pca.explained_variance_ratio_)))
 
-    # plt.tight_layout()
+    plt.tight_layout()
+    # plt.savefig(f"../data/{model_name}_{weights}_{layer.replace('.','')}.png", bbox_inches="tight")
     plt.show()
     plt.clf()
     plt.close("all")

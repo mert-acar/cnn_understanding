@@ -30,25 +30,53 @@ def cluster_inducing_loss(preds: torch.Tensor):
   return loss
 
 
+def regularized_discriminative_embedding_loss(embeddings, labels):
+  embeddings = embeddings.reshape(embeddings.shape[0], -1)
+  unique_labels = torch.unique(labels)
+  num_classes = unique_labels.size(0)
+
+  # Initialize class centers
+  class_centers = []
+  for label in unique_labels:
+    class_mask = labels == label
+    class_center = embeddings[class_mask].mean(dim=0)  # Mean embedding for the class
+    class_centers.append(class_center)
+  class_centers = torch.stack(class_centers)  # Shape: (num_classes, embedding_dim)
+
+  # Within-class variance loss
+  within_class_loss = 0.0
+  for label, class_center in zip(unique_labels, class_centers):
+    class_mask = labels == label
+    class_embeddings = embeddings[class_mask]
+    within_class_loss += ((class_embeddings - class_center)**2).sum()
+
+  within_class_loss /= embeddings.size(0)  # Normalize by batch size
+
+  # Between-class variance loss
+  pairwise_distances = torch.cdist(
+    class_centers, class_centers, p=2
+  )  # Pairwise distances between class centers
+  between_class_loss = -pairwise_distances.sum() / (
+    num_classes * (num_classes - 1)
+  )  # Normalize by num_class pairs
+
+  # Total loss
+  total_loss = within_class_loss + between_class_loss
+  return total_loss
+
+
 def contrastive_loss(embeddings, labels, margin=1.0):
   batch_size = embeddings.size(0)
   loss = 0.0
   embeddings = embeddings.reshape(batch_size, -1)
-
-  # Compute pairwise distances
-  distances = torch.cdist(embeddings, embeddings, p=2)  # Shape: (batch_size, batch_size)
-
-  # Create a mask for same-class pairs
-  labels = labels.unsqueeze(1)  # Shape: (batch_size, 1)
-  same_class = (labels == labels.T).float()  # Shape: (batch_size, batch_size)
-
-  # Contrastive loss components
-  positive_loss = same_class * (distances ** 2)
-  negative_loss = (1 - same_class) * torch.clamp(margin - distances, min=0) ** 2
-
-  # Average over all pairs
+  distances = torch.cdist(embeddings, embeddings, p=2)
+  labels = labels.unsqueeze(1)
+  same_class = (labels == labels.T).float()
+  positive_loss = same_class * (distances**2)
+  negative_loss = (1 - same_class) * torch.clamp(margin - distances, min=0)**2
   loss = (positive_loss.sum() + negative_loss.sum()) / (batch_size * (batch_size - 1))
   return loss
+
 
 def main(config_path: str):
   with open(config_path, "r") as f:
@@ -87,6 +115,7 @@ def main(config_path: str):
   group_lasso_coef = config["group_lasso_coef"]
   cil = config["cil"]
   contrastive = config["contrastive"]
+  rde = config["rde"]
 
   tick = time()
   best_epoch = -1
@@ -110,8 +139,13 @@ def main(config_path: str):
           # output = model(data)
 
           # RESNET18
-          features = model.features(data)
-          output = model.fc(model.avgpool(features))
+          conv1 = model.conv1(data)
+          adapt = model.maxpool(model.relu(model.bn1(conv1)))
+          l1 = model.layer1(adapt)
+          l2 = model.layer2(l1)
+          l3 = model.layer3(l2)
+          l4 = model.layer4(l3)
+          output = model.fc(torch.flatten(model.avgpool(l4), 1))
 
           # DENSENET121
           # features = model.features(data)
@@ -130,7 +164,11 @@ def main(config_path: str):
             if cil:
               loss += cluster_inducing_loss(output)
             if contrastive:
-              loss += 0.1 * contrastive_loss(features, target)
+              loss += 0.1 * contrastive_loss(conv1, target)
+              loss += 0.1 * contrastive_loss(l1, target)
+              loss += 0.1 * contrastive_loss(l2, target)
+              loss += 0.1 * contrastive_loss(l3, target)
+              loss += 0.1 * contrastive_loss(l4, target)
             loss.backward()
             optimizer.step()
 

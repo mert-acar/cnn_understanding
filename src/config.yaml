@@ -14,10 +14,12 @@ num_epochs: 50
 learning_rate: 0.0001
 weight_decay: 0.0001
 group_lasso_coef: null
-cil: true
+cil: false
+contrastive: false
+rde: true
 scheduler_factor: 0.1
 scheduler_patience: 5
 
 early_stop: 5
 
-output_path: ../logs/resnet18_MNIST_CIL/
+output_path: ../logs/resnet18_MNIST_RDE/
