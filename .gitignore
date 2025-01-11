@@ -6,6 +6,5 @@ __pycache__/
 data/
 logs/
 venv/
-figures/
 .env
-scripts/data
+src/bench.py

@@ -73,7 +73,7 @@ if __name__ == "__main__":
   weights = "MNIST"
   dataloader = create_dataloader(weights.lower(), "test")
 
-  experiment_path = f"../logs/{model_name}_{weights}_RDE/"
+  experiment_path = f"../logs/{model_name}_temp2/"
   model = load_model(experiment_path, checkpoint_number=6)
 
   # experiment_path = f"../logs/{model_name}_{weights}_CIL/"

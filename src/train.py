@@ -9,73 +9,7 @@ from shutil import rmtree, copyfile
 
 from model import create_model
 from dataset import create_dataloader
-
-
-def group_lasso_penalty(model: torch.nn.Module):
-  penalty = 0
-  for name, param in model.named_parameters():
-    if 'features' in name:
-      # if 'conv' in name and 'weight' in name:
-      penalty += torch.norm(torch.norm(param.view(param.shape[0], -1), p=2, dim=1), p=1)
-  return penalty
-
-
-def cluster_inducing_loss(preds: torch.Tensor):
-  pred = F.softmax(preds, dim=1)
-  k = pred.shape[-1]
-  ri = torch.sqrt(torch.sum(pred, dim=0))
-  num = pred / ri
-  q = num / torch.sum(num, dim=0)
-  loss = -1 * torch.mean(q * torch.log(pred)) / k
-  return loss
-
-
-def regularized_discriminative_embedding_loss(embeddings, labels):
-  embeddings = embeddings.reshape(embeddings.shape[0], -1)
-  unique_labels = torch.unique(labels)
-  num_classes = unique_labels.size(0)
-
-  # Initialize class centers
-  class_centers = []
-  for label in unique_labels:
-    class_mask = labels == label
-    class_center = embeddings[class_mask].mean(dim=0)  # Mean embedding for the class
-    class_centers.append(class_center)
-  class_centers = torch.stack(class_centers)  # Shape: (num_classes, embedding_dim)
-
-  # Within-class variance loss
-  within_class_loss = 0.0
-  for label, class_center in zip(unique_labels, class_centers):
-    class_mask = labels == label
-    class_embeddings = embeddings[class_mask]
-    within_class_loss += ((class_embeddings - class_center)**2).sum()
-
-  within_class_loss /= embeddings.size(0)  # Normalize by batch size
-
-  # Between-class variance loss
-  pairwise_distances = torch.cdist(
-    class_centers, class_centers, p=2
-  )  # Pairwise distances between class centers
-  between_class_loss = -pairwise_distances.sum() / (
-    num_classes * (num_classes - 1)
-  )  # Normalize by num_class pairs
-
-  # Total loss
-  total_loss = within_class_loss + between_class_loss
-  return total_loss
-
-
-def contrastive_loss(embeddings, labels, margin=1.0):
-  batch_size = embeddings.size(0)
-  loss = 0.0
-  embeddings = embeddings.reshape(batch_size, -1)
-  distances = torch.cdist(embeddings, embeddings, p=2)
-  labels = labels.unsqueeze(1)
-  same_class = (labels == labels.T).float()
-  positive_loss = same_class * (distances**2)
-  negative_loss = (1 - same_class) * torch.clamp(margin - distances, min=0)**2
-  loss = (positive_loss.sum() + negative_loss.sum()) / (batch_size * (batch_size - 1))
-  return loss
+from loss import group_lasso_penalty, cluster_inducing_loss, contrastive_loss
 
 
 def main(config_path: str):
@@ -112,10 +46,9 @@ def main(config_path: str):
   )
   criterion = torch.nn.CrossEntropyLoss()
 
-  group_lasso_coef = config["group_lasso_coef"]
-  cil = config["cil"]
+  group_lasso = config["group_lasso"]
+  cluster_inducing = config["cluster_inducing"]
   contrastive = config["contrastive"]
-  rde = config["rde"]
 
   tick = time()
   best_epoch = -1
@@ -139,13 +72,12 @@ def main(config_path: str):
           # output = model(data)
 
           # RESNET18
-          conv1 = model.conv1(data)
-          adapt = model.maxpool(model.relu(model.bn1(conv1)))
-          l1 = model.layer1(adapt)
-          l2 = model.layer2(l1)
-          l3 = model.layer3(l2)
-          l4 = model.layer4(l3)
-          output = model.fc(torch.flatten(model.avgpool(l4), 1))
+          feat = model.maxpool(model.relu(model.bn1(model.conv1(data))))
+          feat = model.layer1(feat)
+          feat = model.layer2(feat)
+          feat = model.layer3(feat)
+          feat = model.layer4(feat)
+          output = model.fc(torch.flatten(model.avgpool(feat), 1))
 
           # DENSENET121
           # features = model.features(data)
@@ -159,28 +91,21 @@ def main(config_path: str):
 
           loss = criterion(output, target)
           if phase == "train":
-            if group_lasso_coef is not None:
-              loss += group_lasso_coef * group_lasso_penalty(model)
-            if cil:
-              loss += cluster_inducing_loss(output)
-            if contrastive:
-              loss += 0.1 * contrastive_loss(conv1, target)
-              loss += 0.1 * contrastive_loss(l1, target)
-              loss += 0.1 * contrastive_loss(l2, target)
-              loss += 0.1 * contrastive_loss(l3, target)
-              loss += 0.1 * contrastive_loss(l4, target)
-            if rde:
-              loss += 0.1 * regularized_discriminative_embedding_loss(conv1, target)
-              loss += 0.1 * regularized_discriminative_embedding_loss(l1, target)
-              loss += 0.1 * regularized_discriminative_embedding_loss(l2, target)
-              loss += 0.1 * regularized_discriminative_embedding_loss(l3, target)
-              loss += 0.1 * regularized_discriminative_embedding_loss(l4, target)
+            if group_lasso is not None:
+              loss += group_lasso * group_lasso_penalty(model)
+            if cluster_inducing is not None:
+              loss += cluster_inducing * cluster_inducing_loss(output)
+            if contrastive is not None:
+              closs = contrastive * contrastive_loss(
+                F.normalize(feat.view(feat.shape[0], -1), p=2, dim=1), target
+              )
+              loss += closs
             loss.backward()
             optimizer.step()
 
           running_error += loss.item()
           running_accuracy += acc
-          pbar.set_description(f"{loss.item():.5f} | {acc * 100:.3f}%")
+          pbar.set_description(f"{loss.item():.5f} | {closs.item():.5f} | {acc * 100:.3f}%")
 
       running_error = running_error / len(dataloaders[phase])
       running_accuracy = running_accuracy / len(dataloaders[phase])
@@ -209,7 +134,7 @@ def main(config_path: str):
   print(f"Training took {int(h):d} hours {int(m):d} minutes {s:.2f} seconds.")
 
   fig, axs = plt.subplots(1, len(metrics), tight_layout=True, figsize=(10, 5))
-  epochs = list(range(1, epoch + 2))
+  epochs = list(range(1, epoch + 1))
   for i, (metric, arr) in enumerate(metrics.items()):
     for phase, val in arr.items():
       axs[i].plot(epochs, val, label=phase)

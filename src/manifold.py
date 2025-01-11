@@ -3,8 +3,31 @@ from tqdm import tqdm
 from numpy.linalg import svd
 from scipy.spatial.distance import cdist
 
+def similarity(x, y, y_facet, na=4, nb=0.5):
+  diff = y - x
+  basis_matrix = y_facet[0]
+  BTB = np.dot(basis_matrix, basis_matrix.T)
+  BTB_inv = np.linalg.pinv(BTB)
+  projection_matrix = np.dot(basis_matrix.T, np.dot(BTB_inv, basis_matrix))
+  subspace_component = np.linalg.norm(np.dot(projection_matrix, diff))
+  normal_component = np.linalg.norm(diff - subspace_component)
+  alpha_sim = 1 / (1 + ((normal_component / 2) ** na))
+  beta_sim = 1 / (1 + (subspace_component ** nb))
+  return alpha_sim * beta_sim
 
-def transform(facet_planes, plane_centers, points):
+def pw_similarity(x, x_facet, y, y_facet, na=4, nb=0.5):
+  return (similarity(x, y, y_facet, na, nb) + similarity(y, x, x_facet, na, nb)) / 2
+
+def find_facets(planes, points):
+  residues = np.zeros((len(points), len(planes)))
+  for i in tqdm(range(len(planes)), desc="Assigning points to facets"):
+    residues[:, i] = get_residue(points - planes[i][1], planes[i][0])
+  return np.argmin(residues, axis=1)
+
+def transform(planes, points):
+  facet_planes = np.array([x[0] for x in planes])
+  plane_centers = np.array([x[1] for x in planes])
+
   num_points = points.shape[0]
   num_facets = facet_planes.shape[0]
 
@@ -37,29 +60,33 @@ def get_residue(points, plane):
   return residue
 
 
-def get_facet_planes(embeddings, facet_dim=3, residue_threshold=0.01):
+def get_facet_planes(embeddings, facet_dim=3, residue_threshold=0.1):
   num_data = embeddings.shape[0]
+
   dist = cdist(embeddings, embeddings)
   topk_index = np.argsort(dist, axis=1)
 
   used_in_facet = np.ones(num_data) * -1
   residues = np.zeros(num_data)
-  outlier_points = []
   facet_planes = []
   plane_centers = []
 
   facet_num = 0
-  for i in tqdm(range(num_data)):
+  pbar = tqdm(range(num_data), desc=f"{(used_in_facet != -1).sum()}/{num_data}")
+  for i in pbar:
     if (used_in_facet[i] != -1):
       continue
 
     examples_to_select = []
-    for j in range(num_data):
-      if (used_in_facet[topk_index[i, j]] != -1):
+    mask = used_in_facet[topk_index[i]] == -1
+    candidates = topk_index[i][mask]
+    for j in candidates:
+      if len(examples_to_select) == 0:
+        examples_to_select.append(j)
         continue
-      else:
-        indices = examples_to_select + [j]
-        current_points = embeddings[topk_index[i, indices], :]
+
+      indices = examples_to_select + [j]
+      current_points = embeddings[topk_index[i, indices]]
 
       origin = current_points.mean(axis=0)
       current_points_centered = current_points - origin
@@ -77,37 +104,25 @@ def get_facet_planes(embeddings, facet_dim=3, residue_threshold=0.01):
 
       vh = vh[:facet_dim, :]
       orig_residue = get_residue(current_points_centered[0, :][np.newaxis, :], vh)
-      if (orig_residue > residue_threshold):
-        continue
-      else:
-        examples_to_select = examples_to_select + [j]
+      if (orig_residue <= residue_threshold):
+        examples_to_select.append(j)
 
     if (len(examples_to_select) >= facet_dim):
-      current_points = embeddings[topk_index[i, examples_to_select], :]
-      origin = current_points[0, :]
+      selected_idx = topk_index[i, examples_to_select]
+      current_points = embeddings[selected_idx]
+      origin = current_points[0]
       plane_centers.append(origin)
       current_points_centered = current_points - origin
       _, _, vh = svd(current_points_centered, full_matrices=False)
       vh = vh[:facet_dim, :]
+      facet_planes.append(vh)
 
-      point_plane = np.zeros((facet_dim, embeddings.shape[1]))
-      point_plane[:, :] = vh
-      facet_planes.append(point_plane)
-
-      used_in_facet[topk_index[i, examples_to_select]] = facet_num
+      used_in_facet[selected_idx] = facet_num
       facet_num += 1
-
-      temp1 = get_residue(current_points_centered, vh)
-      residues[topk_index[i, examples_to_select]] = temp1
-    else:
-      outlier_points.append(embeddings[i, :])
+      residues[selected_idx] = get_residue(current_points_centered, vh)
+    pbar.set_description(f"{(used_in_facet != -1).sum()}/{num_data}")
 
   facet_planes = np.stack(facet_planes)
   plane_centers = np.stack(plane_centers)
-  return facet_planes, plane_centers
-
-
-def get_facet_proj(embeddings, facet_dim=3, residue_threshold=0.01):
-  facet_planes, plane_centers = get_facet_planes(embeddings, facet_dim, residue_threshold)
-  transformed, chosen_facets = transform(facet_planes, plane_centers, embeddings)
-  return facet_planes, plane_centers, transformed, chosen_facets
+  planes = list(zip(facet_planes, plane_centers))
+  return planes

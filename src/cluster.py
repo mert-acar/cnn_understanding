@@ -1,9 +1,8 @@
-import torch
 import pickle as p
 import numpy as np
 from tqdm import tqdm
 from typing import Tuple, Optional
-from sklearn import metrics, cluster, mixture
+from sklearn import metrics, cluster
 from scipy.optimize import linear_sum_assignment
 
 
@@ -82,7 +81,6 @@ if __name__ == "__main__":
     labels = labels[idx]
 
   exp_dir = f"../logs/{model_name}_{dataset}/"
-  # exp_dir = f"../logs/{model_name}_{dataset}_CIL/"
   out_path = os.path.join(exp_dir, "clusters")
   os.makedirs(out_path, exist_ok=True)
 
@@ -93,47 +91,24 @@ if __name__ == "__main__":
   for var in vars:
     out = defaultdict(list)
     print(var, "\n----------------")
-    # file_path = os.path.join(out_path, f"{var.replace('.', '_')}_pca3.p")
+    with open(os.path.join(exp_dir, "activations", f"{var.replace('.', '_')}_act.p"), "rb") as f:
+      x = p.load(f)
+
+    if idx is not None:
+      x = x[idx]
 
     # [N, C, H, W] -> [N, C*H*W]
-    # if os.path.exists(file_path):
-    #   with open(file_path, "rb") as f:
-    #     x = p.load(f)
-    # else:
-    if True:
-      with open(os.path.join(exp_dir, "activations", f"{var.replace('.', '_')}_act.p"), "rb") as f:
-        x = p.load(f)
+    x = x.reshape(x.shape[0], -1)
 
-      if idx is not None:
-        x = x[idx]
-
-      # [N, C, H, W] -> [N, C*H*W]
-      x = x.reshape(x.shape[0], -1)
-
-      print(f"Before PCA: {x.shape}")
-      tick = time()
-      x = PCA(n_components=3, whiten=True).fit_transform(x)
-      # x = PCA(n_components=0.95, whiten=True).fit_transform(x)
-      print(f"PCA took {time() - tick:.3f} seconds")
-      print(f"After PCA: {x.shape}")
-      # with open(file_path, "wb") as f:
-      #   p.dump(x, f, protocol=p.HIGHEST_PROTOCOL)
+    print(f"Before PCA: {x.shape}")
+    tick = time()
+    x = PCA(n_components=3, whiten=True).fit_transform(x)
+    print(f"PCA took {time() - tick:.3f} seconds")
+    print(f"After PCA: {x.shape}")
 
     for k in tqdm(range(low, high)):
-      # cluster_labels = train_mlr(x, k)
-
+      cluster_labels = train_mlr(x, k)
       # cluster_labels = cluster.MiniBatchKMeans(n_clusters=k, batch_size=2048).fit_predict(x)
-
-      # cluster_labels = mixture.GaussianMixture(n_components=k).fit_predict(x)
-
-      cluster_labels = cluster.SpectralClustering(
-        n_clusters=k,
-        eigen_solver="amg",
-        affinity="nearest_neighbors",
-        n_neighbors=10,
-        assign_labels="cluster_qr",
-        n_jobs=-1
-      ).fit_predict(x)
 
       perf = {
         "k": k,
@@ -158,5 +133,4 @@ if __name__ == "__main__":
   df = pd.read_csv(os.path.join(out_path, f"{identifier}_scores.csv"))
   out_path = os.path.join(exp_dir, "figures")
   os.makedirs(out_path, exist_ok=True)
-  # df["silhouette"] = (df["silhouette"] + 1) / 2
   plot_scores(df, identifier, out_path)

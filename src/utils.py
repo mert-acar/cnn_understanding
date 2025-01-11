@@ -47,7 +47,7 @@ def select_random_samples(
   return np.array(selected_indices)
 
 
-def normalize(x: np.ndarray, axis: int = 0, eps: float = 1e-12) -> np.ndarray:
+def normalize(x: np.ndarray, axis: int = 1, eps: float = 1e-12) -> np.ndarray:
   norm = np.linalg.norm(x, axis=axis, keepdims=True)
   return x / (norm + eps)
 
@@ -83,3 +83,24 @@ def closest_factors(n: int) -> tuple[int, int]:
     if n % i == 0:
       return (i, n // i)
   return (n, 1)
+
+
+def svd_reduction(
+  activations: np.ndarray,
+  n_components: Union[None, int] = 10,
+  threshold: Union[None, float] = None
+) -> np.ndarray:
+  assert (n_components is None) != (threshold is None), "Either rank or threshold should be specified"
+  u, s, _ = np.linalg.svd(activations, full_matrices=False)
+
+  if threshold is not None:
+    s2 = s**2
+    energies = np.cumsum(s2) / np.sum(s2)
+    k = np.argmax(energies > threshold) + 1
+  else:
+    k = n_components
+
+  u_k = u[:, :k]
+  s_k = s[:k]
+  recon = np.dot(u_k, np.diag(s_k))
+  return recon
