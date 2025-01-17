@@ -7,9 +7,17 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from shutil import rmtree, copyfile
 
+from loss import CompositeLoss
 from model import create_model
-from dataset import create_dataloader
-from loss import group_lasso_penalty, cluster_inducing_loss, contrastive_loss
+from dataset import get_dataloader
+
+
+def group_lasso_penalty(model: torch.nn.Module) -> torch.Tensor:
+  penalty = 0
+  for name, param in model.named_parameters():
+    if 'features' in name:
+      penalty += torch.norm(torch.norm(param.view(param.shape[0], -1), p=2, dim=1), p=1)
+  return penalty
 
 
 def main(config_path: str):
@@ -18,9 +26,7 @@ def main(config_path: str):
 
   # Create the checkpoint output path
   if os.path.exists(config["output_path"]):
-    c = input(
-      f"Output path {config['output_path']} is not empty! Do you want to delete the folder [y / n]: "
-    )
+    c = input(f"Output path {config['output_path']} is not empty! Do you want to delete the folder [y / n]: ")
     if "y" == c.lower():
       rmtree(config["output_path"], ignore_errors=True)
     else:
@@ -33,8 +39,8 @@ def main(config_path: str):
   print(f"[INFO] Running on {device}")
 
   dataloaders = {
-    "train": create_dataloader(split="train", **config),
-    "test": create_dataloader(split="test", **config),
+    "train": get_dataloader(split="train", **config),
+    "test": get_dataloader(split="test", **config),
   }
 
   model = create_model(**config["model"]).to(device)
@@ -44,11 +50,8 @@ def main(config_path: str):
   scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
     optimizer, factor=config["scheduler_factor"], patience=config["scheduler_patience"]
   )
-  criterion = torch.nn.CrossEntropyLoss()
 
-  group_lasso = config["group_lasso"]
-  cluster_inducing = config["cluster_inducing"]
-  contrastive = config["contrastive"]
+  criterion = CompositeLoss(config["criterion_args"])
 
   tick = time()
   best_epoch = -1
@@ -69,43 +72,19 @@ def main(config_path: str):
         for data, target in pbar:
           data, target = data.to(device), target.to(device)
           optimizer.zero_grad()
-          # output = model(data)
-
-          # RESNET18
-          feat = model.maxpool(model.relu(model.bn1(model.conv1(data))))
-          feat = model.layer1(feat)
-          feat = model.layer2(feat)
-          feat = model.layer3(feat)
-          feat = model.layer4(feat)
-          output = model.fc(torch.flatten(model.avgpool(feat), 1))
-
-          # DENSENET121
-          # features = model.features(data)
-          # output = F.relu(features, inplace=True)
-          # output = F.adaptive_avg_pool2d(output, (1, 1))
-          # output = torch.flatten(output, 1)
-          # output = model.classifier(output)
+          output = model(data)
 
           pred = F.log_softmax(output, dim=1)
           acc = pred.argmax(1).eq(target).sum().item() / data.shape[0]
 
           loss = criterion(output, target)
           if phase == "train":
-            if group_lasso is not None:
-              loss += group_lasso * group_lasso_penalty(model)
-            if cluster_inducing is not None:
-              loss += cluster_inducing * cluster_inducing_loss(output)
-            if contrastive is not None:
-              closs = contrastive * contrastive_loss(
-                F.normalize(feat.view(feat.shape[0], -1), p=2, dim=1), target
-              )
-              loss += closs
             loss.backward()
             optimizer.step()
 
           running_error += loss.item()
           running_accuracy += acc
-          pbar.set_description(f"{loss.item():.5f} | {closs.item():.5f} | {acc * 100:.3f}%")
+          pbar.set_description(f"{loss.item():.5f} | {acc * 100:.3f}%")
 
       running_error = running_error / len(dataloaders[phase])
       running_accuracy = running_accuracy / len(dataloaders[phase])

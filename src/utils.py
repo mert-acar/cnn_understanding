@@ -7,19 +7,9 @@ from scipy.io import loadmat
 from kneed import KneeLocator
 from typing import List, Union
 
-from dataset import create_dataloader
-
-
-def load_ImageNet_labels() -> np.ndarray:
-  return np.array(create_dataloader("imagenet", "val").dataset.targets)
-
-
-def load_CIFAR10_labels() -> np.ndarray:
-  return np.array(create_dataloader("cifar10", "test").dataset.targets)
-
 
 def load_MNIST_labels() -> np.ndarray:
-  return loadmat("../data/MNIST/labels.mat")["labels"][0]
+  return loadmat("../data/mnist/labels.mat")["labels"][0]
 
 
 def combine_scores(data):

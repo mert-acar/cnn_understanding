@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-from tqdm import tqdm
 import torch.nn.functional as F
 
 
@@ -38,8 +37,6 @@ def train_mlr(x, k, dev="mps", lr=0.005, n_epochs=2000, patience=5):
   best_loss = float('inf')
   patience_counter = 0
   
-  # pbar = tqdm(range(n_epochs))
-  # for epoch in pbar:
   for epoch in range(n_epochs):
     optimizer.zero_grad()
     pred = model(x)
@@ -48,9 +45,6 @@ def train_mlr(x, k, dev="mps", lr=0.005, n_epochs=2000, patience=5):
       for g in optimizer.param_groups:
         g['lr'] = g['lr'] * 0.5
       continue
-
-    # pbar.set_description(f"Loss: {loss.item() * 1e6:.4f}")
-    # print(f"epoch: {epoch} | loss: {loss.item() * 1e6:.4f}")
     
     loss.backward()
     optimizer.step()

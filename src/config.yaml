@@ -8,17 +8,25 @@ model:
     weights: DEFAULT
 
 # Training
-batch_size: 128
+batch_size: 64
 num_workers: 4
-num_epochs: 50
-learning_rate: 0.0001
-weight_decay: 0.0001
-group_lasso: null
-cluster_inducing: null
-contrastive: 10
+num_epochs: 100
+learning_rate: 0.001
+weight_decay: 0.0005
+criterion_args:
+  # cross_entropy_loss: {weight: 1.0}
+  # cluster_inducing_loss: {weight: 0.5}
+  maximal_coding_rate_reduction: {
+    weight: 1.0,
+    args: {
+      gam1: 20,
+      gam2: 15,
+      eps: 0.5,
+    }
+  }
 scheduler_factor: 0.1
-scheduler_patience: 5
+scheduler_patience: 2
 
-early_stop: 5
+early_stop: 4
 
-output_path: ../logs/resnet18_temp2/
+output_path: ../logs/resnet18_MNIST_MCR/

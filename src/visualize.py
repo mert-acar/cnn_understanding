@@ -1,4 +1,5 @@
 import os
+from pickle import load
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
@@ -258,6 +259,7 @@ def plot_scores(df, identifier, out_path):
         axs[i, j].set_title(score)
     plt.suptitle(var)
     plt.savefig(os.path.join(out_path, f"{var.replace('.','_')}_{identifier}.png"), bbox_inches="tight")
+
     plt.clf()
     plt.close("all")
 
@@ -284,19 +286,45 @@ def plot_scores(df, identifier, out_path):
 
 if __name__ == "__main__":
   import os
+  import pickle as p
+  from utils import load_MNIST_labels, normalize
+  from sklearn.decomposition import PCA
+  from sklearn.preprocessing import StandardScaler
 
   model_name = "resnet18"
-  dataset = "IMAGENET"
-  identifier = "kmeans"
-  exp_dir = f"../logs/{model_name}_{dataset}"
-  data_path = f"clusters/{identifier}_scores.csv"
-  out_path = os.path.join(exp_dir, "figures")
-  os.makedirs(out_path, exist_ok=True)
+  dataset = "MNIST"
+  var = "layer3_1"
+  # exp_dir = f"../logs/{model_name}_{dataset}/activations"
+  exp_dir = f"../logs/{model_name}_{dataset}_CIL/activations"
+  with open(os.path.join(exp_dir, f"{var}_act.p"), "rb") as f:
+    activations = p.load(f)
+  activations = activations.reshape(activations.shape[0], -1)
+  labels = load_MNIST_labels()
 
-  df = pd.read_csv(os.path.join(exp_dir, data_path))
-  df["silhouette"] = (df["silhouette"] + 1) / 2
-  plot_scores(df, identifier, out_path)
+  activations = StandardScaler().fit_transform(activations) 
+  activations = PCA(n_components=3).fit_transform(activations)
+  # activations = normalize(activations, 1)
 
+  fig = plt.figure(figsize=(11, 10))
+  ax = fig.add_subplot(111, projection='3d')
+  x = activations[:, 0]
+  y = activations[:, 1]
+  z = activations[:, 2]
+  ax.scatter(x, y, z, c=labels, cmap="viridis", s=3)
+
+  ax.set_xlabel('PC1')
+  ax.set_ylabel('PC2')
+  ax.set_zlabel('PC3')
+  plt.show()
+
+  # identifier = "kmeans"
+  # data_path = f"clusters/{identifier}_scores.csv"
+  # out_path = os.path.join(exp_dir, "figures")
+  # os.makedirs(out_path, exist_ok=True)
+  #
+  # df = pd.read_csv(os.path.join(exp_dir, data_path))
+  # df["silhouette"] = (df["silhouette"] + 1) / 2
+  # plot_scores(df, identifier, out_path)
 
   # ------------------------------------------
 

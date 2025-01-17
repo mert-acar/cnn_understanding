@@ -4,7 +4,7 @@ from tqdm import tqdm
 from yaml import full_load
 from model import load_model
 import torch.nn.functional as F
-from dataset import create_dataloader
+from dataset import get_dataloader
 from torch.utils.data import DataLoader
 
 
@@ -14,7 +14,7 @@ def main(experiment_path: str, checkpoint_num: int = 1):
 
   device = torch.device("cuda" if torch.cuda.is_available() else "mps")
 
-  dataloader = create_dataloader(split="test", **config)
+  dataloader = get_dataloader(split="test", **config)
 
   model = load_model(experiment_path, checkpoint_num).to(device)
   model.eval()

@@ -1,132 +1,42 @@
-import os
-import json
 import torch
-from glob import glob
-from PIL import Image
 from torch.utils.data import DataLoader
 import torchvision.datasets as datasets
 import torchvision.transforms.v2 as transforms
 
-IMAGENET_CLASS_IDX = [
-  4, 17, 28, 43, 49, 59, 76, 78, 91, 101, 102, 137, 180, 183, 209, 211, 218, 276, 286, 288, 329,
-  334, 338, 372, 378, 425, 471, 508, 510, 517, 547, 569, 594, 610, 612, 642, 655, 698, 714, 717,
-  772, 815, 920, 925, 931, 950, 951, 959, 973, 985
-]
 
-
-def create_dataloader(
-  dataset: str, split: str, batch_size: int = 1, num_workers: int = 4, **kwargs
-) -> DataLoader:
-  if dataset.lower() == "mnist":
-    return create_mnist_dataloader("../data/", batch_size, num_workers, split, **kwargs)
-  elif dataset.lower() == "imagenet":
-    return create_imagenet_dataloader("../data/ImageNet/", batch_size, num_workers, split, **kwargs)
-  elif dataset.lower() == "cifar10":
-    return create_cifar_dataloader("../data/", batch_size, num_workers, split, **kwargs)
-  else:
-    raise NotImplementedError(dataset)
-
-
-def create_cifar_dataloader(
-  data_root: str = "../data/",
-  batch_size: int = 1,
-  num_workers: int = 4,
-  split: str = "train",
-  **kwargs
-) -> DataLoader:
-  if split == "train":
-    transform = transforms.Compose([
-      transforms.RandomCrop(32, padding=4),
-      transforms.RandomHorizontalFlip(),
-      transforms.ToImage(),
-      transforms.ToDtype(torch.float32, scale=True),
-      transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-    ])
-  else:
-    transform = transforms.Compose([
-      transforms.ToImage(),
-      transforms.ToDtype(torch.float32, scale=True),
-      transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-    ])
-  return DataLoader(
-    datasets.CIFAR10(root=data_root, download=True, train=split == 'train', transform=transform),
-    batch_size=batch_size,
-    num_workers=num_workers,
-    shuffle=split == 'train'
-  )
-
-
-def create_mnist_dataloader(
-  data_root: str = "../data/",
-  batch_size: int = 1,
-  num_workers: int = 4,
-  split: str = "train",
-  **kwargs
-) -> DataLoader:
-  transform = transforms.Compose([
-    transforms.Resize(32),
+def get_transforms(dataset: str, split: str = "train") -> torch.nn.Module:
+  dataset = dataset.lower()
+  transform_list = [
     transforms.ToImage(),
     transforms.ToDtype(torch.float32, scale=True),
-    transforms.Normalize((0.1307, ), (0.3081, ))
-  ])
-  return DataLoader(
-    datasets.MNIST(root=data_root, download=True, train=split == 'train', transform=transform),
-    batch_size=batch_size,
-    num_workers=num_workers,
-    shuffle=split == 'train'
-  )
+  ]
+  if split == "test":
+    return transforms.Compose(transform_list)
+
+  if dataset == "mnist":
+    augmentations = [
+      transforms.RandomChoice([
+        transforms.RandomAffine((-90, 90)),
+        transforms.RandomAffine(0, translate=(0.2, 0.4)),
+        transforms.RandomAffine(0, scale=(0.8, 1.1)),
+        transforms.RandomAffine(0, shear=(-20, 20))
+      ]),
+    ]
+
+  return transforms.Compose(transform_list + augmentations)
 
 
-def create_imagenet_dataloader(
-  data_root: str = "../data/ImageNet",
-  batch_size: int = 1,
-  num_workers: int = 4,
-  split: str = "val",
-  **kwargs
+def get_dataloader(
+  dataset: str, split: str, batch_size: int = 1, num_workers: int = 1, **kwargs
 ) -> DataLoader:
-  transform = transforms.Compose([
-    transforms.Resize(256),
-    transforms.CenterCrop(224),
-    transforms.ToImage(),
-    transforms.ToDtype(torch.float32, scale=True),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-  ])
-  return DataLoader(
-    ImageNet(data_root, transform=transform),
-    batch_size=batch_size,
-    num_workers=num_workers,
-    shuffle=split == 'train'
-  )
+  dataset = dataset.lower()
+  isTrain = split == "train"
+  transform = get_transforms(dataset, split)
+  if dataset == "mnist":
+    dataset_cls = datasets.MNIST("../data/mnist/", train=isTrain, transform=transform)
+  return DataLoader(dataset_cls, batch_size=batch_size, num_workers=num_workers, shuffle=isTrain)
 
-
-class ImageNet(torch.utils.data.Dataset):
-  def __init__(
-    self,
-    data_path: str = "../data/ImageNet/",
-    transform=None,
-    class_idx: list[int] = IMAGENET_CLASS_IDX,
-    **kwargs
-  ):
-    with open(os.path.join(data_path, "idx_to_wind.json"), "r") as f:
-      idx_to_wind = json.load(f)
-    self.wind = [idx_to_wind[str(idx)] for idx in class_idx]
-
-    data_paths, targets = [], []
-    for i, w in enumerate(self.wind):
-      paths = glob(os.path.join(data_path, "val", w, "*.JPEG"))
-      data_paths.extend(paths)
-      targets.extend([i] * len(paths))
-    self.data_paths = data_paths
-    self.targets = targets
-    self.transform = transform
-
-  def __len__(self):
-    return len(self.data_paths)
-
-  def __getitem__(self, idx: int) -> tuple[Image.Image, int]:
-    path = self.data_paths[idx]
-    img = Image.open(path)
-    if self.transform:
-      img = self.transform(img)
-    label = self.targets[idx]
-    return img, label
+if __name__ == "__main__":
+  dataloader = get_dataloader("mnist", "test")
+  sample = next(iter(dataloader))
+  print(sample[0].shape)

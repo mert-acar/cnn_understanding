@@ -5,7 +5,6 @@ from typing import Union, Callable
 from collections import defaultdict
 from torch.utils.data import DataLoader
 
-from dataset import create_dataloader
 
 hooked_activations = defaultdict(list)
 
@@ -67,20 +66,15 @@ def hook_layers(model: torch.nn.Module, targets: list[str]):
 if __name__ == "__main__":
   import os
   import pickle as p
+  from dataset import get_dataloader
   from model import load_model, HOOK_TARGETS
 
   model_name = "resnet18"
   weights = "MNIST"
-  dataloader = create_dataloader(weights.lower(), "test")
+  dataloader = get_dataloader(weights, "test")
 
-  experiment_path = f"../logs/{model_name}_temp2/"
-  model = load_model(experiment_path, checkpoint_number=6)
-
-  # experiment_path = f"../logs/{model_name}_{weights}_CIL/"
-  # model = load_model(experiment_path, checkpoint_number=6)
-
-  # experiment_path = f"../logs/{model_name}_{weights}/"
-  # model = load_model(experiment_path, checkpoint_number=8)
+  experiment_path = f"../logs/{model_name}_{weights}_CIL2/"
+  model = load_model(experiment_path, checkpoint_number=5)
 
   hook_targets = HOOK_TARGETS[model_name]
   out_path = os.path.join(experiment_path, "activations")
