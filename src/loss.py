@@ -97,5 +97,7 @@ class CompositeLoss(torch.nn.Module):
       self.losses.append((loss_registry.get(loss_name, **kwargs), weight))
 
   def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-    total_loss = torch.sum([loss_fn(logits, targets) * w for (loss_fn, w) in self.losses])
+    total_loss = 0
+    for loss_fn, w in self.losses:
+      total_loss += loss_fn(logits, targets) * w
     return total_loss

@@ -8,7 +8,7 @@ from dataset import get_dataloader
 from torch.utils.data import DataLoader
 
 
-def main(experiment_path: str, checkpoint_num: int = 1):
+def main(experiment_path: str):
   with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
     config = full_load(f)
 
@@ -16,7 +16,7 @@ def main(experiment_path: str, checkpoint_num: int = 1):
 
   dataloader = get_dataloader(split="test", **config)
 
-  model = load_model(experiment_path, checkpoint_num).to(device)
+  model = load_model(experiment_path).to(device)
   model.eval()
   criterion = torch.nn.CrossEntropyLoss()
   results = test(model, dataloader, criterion, device)

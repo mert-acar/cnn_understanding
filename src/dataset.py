@@ -1,7 +1,19 @@
 import torch
+import numpy as np
+from scipy.io import loadmat
 from torch.utils.data import DataLoader
 import torchvision.datasets as datasets
 import torchvision.transforms.v2 as transforms
+
+
+def get_labels(dataset: str, split: str = "test") -> np.ndarray:
+  assert split in ["train", "test"], f"split must be one of ['train', 'test'], got {split}"
+  if dataset.lower() == "mnist":
+    return loadmat(f"../data/mnist/{split}_labels.mat")["labels"][0]
+  elif dataset.lower() == "cifar10":
+    return loadmat(f"../data/cifar10/{split}_labels.mat")["labels"][0]
+  else:
+    raise FileNotFoundError
 
 
 def get_transforms(dataset: str, split: str = "train") -> torch.nn.Module:
@@ -22,6 +34,12 @@ def get_transforms(dataset: str, split: str = "train") -> torch.nn.Module:
         transforms.RandomAffine(0, shear=(-20, 20))
       ]),
     ]
+  elif dataset == "cifar10":
+    augmentations = [
+      transforms.RandomCrop(32, padding=8),
+      transforms.RandomHorizontalFlip(),
+      transforms.RandomGrayscale(p=0.2)
+    ]
 
   return transforms.Compose(transform_list + augmentations)
 
@@ -33,10 +51,7 @@ def get_dataloader(
   isTrain = split == "train"
   transform = get_transforms(dataset, split)
   if dataset == "mnist":
-    dataset_cls = datasets.MNIST("../data/mnist/", train=isTrain, transform=transform)
+    dataset_cls = datasets.MNIST("../data/mnist/", train=isTrain, transform=transform, download=True)
+  if dataset == "cifar10":
+    dataset_cls = datasets.CIFAR10("../data/cifar10/", train=isTrain, transform=transform, download=True)
   return DataLoader(dataset_cls, batch_size=batch_size, num_workers=num_workers, shuffle=isTrain)
-
-if __name__ == "__main__":
-  dataloader = get_dataloader("mnist", "test")
-  sample = next(iter(dataloader))
-  print(sample[0].shape)

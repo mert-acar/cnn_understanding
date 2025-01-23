@@ -69,12 +69,12 @@ if __name__ == "__main__":
   from dataset import get_dataloader
   from model import load_model, HOOK_TARGETS
 
-  model_name = "resnet18"
-  weights = "MNIST"
-  dataloader = get_dataloader(weights, "test")
+  model_name = "resnet18mcr"
+  dataset = "CIFAR10"
+  experiment_path = f"../logs/resnet18_CIFAR10_MCR/"
 
-  experiment_path = f"../logs/{model_name}_{weights}_CIL2/"
-  model = load_model(experiment_path, checkpoint_number=5)
+  dataloader = get_dataloader(dataset, "test")
+  model = load_model(experiment_path)
 
   hook_targets = HOOK_TARGETS[model_name]
   out_path = os.path.join(experiment_path, "activations")

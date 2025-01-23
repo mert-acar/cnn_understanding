@@ -1,5 +1,4 @@
 import os
-from pickle import load
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
@@ -7,113 +6,23 @@ from pathlib import Path
 from scipy.io import loadmat
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from utils import combine_scores, closest_factors
-
-def add_pos_cube(ax, l=0.4):
-  vertices = [
-    [0, 0, 0],
-    [l, 0, 0],
-    [l, l, 0],
-    [0, l, 0],
-    [0, 0, l],
-    [l, 0, l],
-    [l, l, l],
-    [0, l, l],
-  ]
-  faces = [
-    [vertices[0], vertices[1], vertices[5], vertices[4]],
-    [vertices[1], vertices[2], vertices[6], vertices[5]],
-    [vertices[2], vertices[3], vertices[7], vertices[6]],
-    [vertices[0], vertices[3], vertices[7], vertices[4]],
-    [vertices[0], vertices[1], vertices[2], vertices[3]],
-    [vertices[4], vertices[5], vertices[6], vertices[7]],
-  ]
-  cube = Poly3DCollection(faces, color='blue', alpha=0.05, edgecolor='k')
-  ax.add_collection3d(cube)
+from utils import closest_factors
+from typing import Dict, List
 
 
-def plot_3d_derivatives(data, cube=True):
-  l = 0.4
-  fig = plt.figure(figsize=(8, 8))
-  ax = fig.add_subplot(111, projection='3d')
-  x = np.diff(data[:, 0])
-  y = np.diff(data[:, 1])
-  z = np.diff(data[:, 2])
-  ax.scatter(x, y, z, alpha=0.7, marker='o', label=exp_path.split("/")[-2])
-  if cube:
-    add_pos_cube(ax, l)
-  ax.set_xlabel('d[silhouette]')
-  ax.set_ylabel('d[homogeneity]')
-  ax.set_zlabel('d[completeness]')
-  ax.set_xlim([-l, l])
-  ax.set_ylim([-l, l])
-  ax.set_zlim([-l, l])
-  ax.quiver(-l, 0, 0, 2 * l, 0, 0, color="black", arrow_length_ratio=0.05)
-  ax.quiver(0, -l, 0, 0, 2 * l, 0, color="black", arrow_length_ratio=0.05)
-  ax.quiver(0, 0, -l, 0, 0, 2 * l, color="black", arrow_length_ratio=0.05)
-  ax.legend()
-  plt.subplots_adjust(0, 0, 1, 1)
-  plt.show()
-
-
-def plot_combined_score(data, layers, title=""):
-  combined, _ = combine_scores(data[:, 1:])
-  _, axs = plt.subplots(2, 1, tight_layout=True, figsize=(7, 8))
-  axs[0].plot(layers, combined, label="combined feature")
-  axs[0].set_xlabel("Layers")
-  axs[0].set_xticks(layers)
-  axs[0].set_ylabel("Score")
-  axs[0].grid()
-  axs[0].set_title("Combined Score vs. Layers")
-  diff = np.diff(combined)
-  axs[1].plot(layers[1:], diff, label="combined feature")
-  axs[1].set_xlabel("Layers")
-  axs[1].set_xticks(layers[1:])
-  axs[1].set_ylabel("Score")
-  axs[1].grid()
-  axs[1].set_ylim([min(-0.02, min(diff) * 1.1), max(0.02, max(diff) * 1.1)])
-  axs[1].set_title("Derivative of Combined Score vs. Layers")
-  axs[1].axhline(y=0, linestyle="--", color='red', linewidth=2)
-  plt.subplots_adjust(0, 0, 1, 1)
-  plt.suptitle(title)
-  plt.show()
-
-
-def plot_3d_scores(data, max_var_arrow=True):
-  l = 1.5
-  fig = plt.figure(figsize=(8, 8))
-  ax = fig.add_subplot(111, projection='3d')
-  x = data[:, 0]
-  y = data[:, 1]
-  z = data[:, 2]
-  ax.scatter(x, y, z, alpha=0.7, marker='o', label=exp_path.split("/")[-2])
-  if max_var_arrow:
-    _, weights = combine_scores(data)
-    ax.quiver(
-      0,
-      0,
-      0,
-      weights[0],
-      weights[1],
-      weights[2],
-      color='r',
-      arrow_length_ratio=0.1,
-      label="direction of highest variance"
-    )
-  ax.set_xlabel('silhouette')
-  ax.set_ylabel('homogeneity')
-  ax.set_zlabel('completeness')
-  ax.set_xlim([-l, l])
-  ax.set_ylim([-l, l])
-  ax.set_zlim([-l, l])
-  ax.quiver(-l, 0, 0, 2 * l, 0, 0, color="black", arrow_length_ratio=0.05)
-  ax.quiver(0, -l, 0, 0, 2 * l, 0, color="black", arrow_length_ratio=0.05)
-  ax.quiver(0, 0, -l, 0, 0, 2 * l, color="black", arrow_length_ratio=0.05)
-  ax.legend()
-  plt.subplots_adjust(0, 0, 1, 1)
-  plt.show()
+def plot_performance_curves(metrics: Dict[str, Dict[str, List[float]]], output_path: str):
+  fig, axs = plt.subplots(1, len(metrics), tight_layout=True, figsize=(10, 5))
+  epochs = list(range(1, len(metrics["loss"]["train"]) + 1))
+  for i, (metric, arr) in enumerate(metrics.items()):
+    for phase, val in arr.items():
+      axs[i].plot(epochs, val, label=phase)
+    axs[i].set_xlabel("Epochs")
+    axs[i].set_ylabel(metric)
+    axs[i].legend()
+    axs[i].grid(True)
+  fig.suptitle("Model Performance Across Epochs")
+  plt.savefig(os.path.join(output_path, "performance_curves.png"), bbox_inches="tight")
 
 
 def vis2d(activations: np.ndarray):
@@ -134,9 +43,7 @@ def vis3d(activations: np.ndarray):
   y = y.flatten()
   z = z.flatten()
   values = np.abs(activations.flatten())
-  scatter = ax.scatter(
-    x[values > 0], y[values > 0], z[values > 0], c=values[values > 0], cmap='viridis'
-  )
+  scatter = ax.scatter(x[values > 0], y[values > 0], z[values > 0], c=values[values > 0], cmap='viridis')
   color_bar = plt.colorbar(scatter, ax=ax)
   color_bar.set_label('Intensity')
   ax.set_xlabel('Channels')
@@ -178,10 +85,7 @@ def create_multilayer_sankey(cluster_labels_layers: np.ndarray):
     unique_clusters = np.unique(cluster_labels_layers[layer_idx])
     layer_labels = [f"L{layer_idx+1}_{cluster}" for cluster in unique_clusters]
     labels.extend(layer_labels)
-    label_indices.append({
-      cluster: current_label_idx + i
-      for i, cluster in enumerate(unique_clusters)
-    })
+    label_indices.append({cluster: current_label_idx + i for i, cluster in enumerate(unique_clusters)})
     current_label_idx += len(unique_clusters)
 
   for layer_idx in range(num_layers - 1):
@@ -238,7 +142,7 @@ def plot_scores(df, identifier, out_path):
   best_idx = None
   best_vals = {}
   for var in vars:
-    _, axs = plt.subplots(h, w, tight_layout=True, figsize=(24, 12), squeeze= False)
+    _, axs = plt.subplots(h, w, tight_layout=True, figsize=(24, 12), squeeze=False)
     best_vals[var] = {}
     data = df[df["layer"] == var]
     for i in range(h):
@@ -287,35 +191,43 @@ def plot_scores(df, identifier, out_path):
 if __name__ == "__main__":
   import os
   import pickle as p
-  from utils import load_MNIST_labels, normalize
+  from model import HOOK_TARGETS
+  from utils import load_MNIST_labels
   from sklearn.decomposition import PCA
   from sklearn.preprocessing import StandardScaler
 
-  model_name = "resnet18"
-  dataset = "MNIST"
-  var = "layer3_1"
-  # exp_dir = f"../logs/{model_name}_{dataset}/activations"
-  exp_dir = f"../logs/{model_name}_{dataset}_CIL/activations"
-  with open(os.path.join(exp_dir, f"{var}_act.p"), "rb") as f:
-    activations = p.load(f)
-  activations = activations.reshape(activations.shape[0], -1)
+  model_name = "resnet18mcr"
+  dataset = "CIFAR10"
+  vars = HOOK_TARGETS[model_name]
   labels = load_MNIST_labels()
+  experiments = [f"../logs/resnet18_CIFAR10_MCR/activations"]
 
-  activations = StandardScaler().fit_transform(activations) 
-  activations = PCA(n_components=3).fit_transform(activations)
-  # activations = normalize(activations, 1)
+  # exp_dir = f"../logs/{model_name}_{dataset}2/activations"
+  # exp_dir = f"../logs/{model_name}_{dataset}_CIL2/activations"
+  for var in vars[-1:]:
+    var = var.replace(".", "_")
+    print(var)
+    fig = plt.figure(figsize=(11, 10))
+    for i, exp_dir in enumerate(experiments):
+      with open(os.path.join(exp_dir, f"{var}_act.p"), "rb") as f:
+        activations = p.load(f)
 
-  fig = plt.figure(figsize=(11, 10))
-  ax = fig.add_subplot(111, projection='3d')
-  x = activations[:, 0]
-  y = activations[:, 1]
-  z = activations[:, 2]
-  ax.scatter(x, y, z, c=labels, cmap="viridis", s=3)
+      # activations = activations.reshape(activations.shape[0], -1)
+      # activations = StandardScaler().fit_transform(activations)
+      activations = PCA(n_components=3).fit_transform(activations)
 
-  ax.set_xlabel('PC1')
-  ax.set_ylabel('PC2')
-  ax.set_zlabel('PC3')
-  plt.show()
+      ax = fig.add_subplot(121 + i, projection='3d')
+      x = activations[:, 0]
+      y = activations[:, 1]
+      z = activations[:, 2]
+      ax.scatter(x, y, z, c=labels, cmap="viridis", s=3)
+      ax.set_xlabel('PC1')
+      ax.set_ylabel('PC2')
+      ax.set_zlabel('PC3')
+      ax.set_title(f"{var}{'_CIL' if i == 1 else ''}")
+    plt.show()
+    plt.clf()
+    plt.close("all")
 
   # identifier = "kmeans"
   # data_path = f"clusters/{identifier}_scores.csv"
@@ -325,15 +237,3 @@ if __name__ == "__main__":
   # df = pd.read_csv(os.path.join(exp_dir, data_path))
   # df["silhouette"] = (df["silhouette"] + 1) / 2
   # plot_scores(df, identifier, out_path)
-
-  # ------------------------------------------
-
-  # data = np.zeros((len(vars), len(scores)))
-  # for i, layer in enumerate(vars):
-  #   ldf = df[df["layer"] == layer]
-  #   for j, score in enumerate(scores):
-  #     best_idx = np.argmax(ldf["silhouette"])
-  #     data[i, j] = max(ldf[score])
-  # plot_3d_derivatives(data)
-  # plot_3d_scores(data)
-  # plot_combined_score(data, vars, exp_path.split("/")[-2])

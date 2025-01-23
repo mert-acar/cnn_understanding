@@ -15,9 +15,9 @@ HOOK_TARGETS = {
 
 
 class ResNet18CTRL(nn.Module):
-  def __init__(self, in_ch: int = 1):
+  def __init__(self, in_ch: int = 1, **kwargs):
     super().__init__()
-    model = create_model("resnet18", {"weights": "DEFAULT"}, in_ch)
+    model = create_model("resnet18", in_ch=in_ch)
     self.conv1 = model.conv1
     self.bn1 = model.bn1
     self.maxpool = model.maxpool
@@ -38,44 +38,44 @@ class ResNet18CTRL(nn.Module):
     return F.normalize(out)
 
 
-def create_model(model_name: str, config: dict = {}, in_ch: int = 1) -> nn.Module:
+def create_model(
+  model_name: str, weights: str = "DEFAULT", in_ch: int = 1, out_ch: int = 10, **kwargs
+) -> torch.nn.Module:
   if model_name.lower() == "resnet18":
-    model = models.get_model(model_name, **config)
+    model = models.get_model(model_name, weights=weights)
     if in_ch == 1:
-      model.conv1 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)
-    model.fc = nn.Linear(512, 10, bias=True)
+      model.conv1 = nn.Conv2d(in_ch, 64, 3, 2, 3, bias=False)
+    model.fc = nn.Linear(512, out_ch, bias=True)
   elif model_name.lower() == "resnet18ctrl":
     model = ResNet18CTRL(in_ch)
   elif model_name.lower() == "densenet121":
-    model = models.get_model(model_name, **config)
+    model = models.get_model(model_name, weights=weights)
     if in_ch == 1:
       model.features.conv0 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)
-    model.classifier = nn.Linear(1024, 10, bias=True)
+    model.classifier = nn.Linear(1024, out_ch, bias=True)
   elif model_name.lower() == "efficientnet_b2":
-    model = models.get_model(model_name, **config)
+    model = models.get_model(model_name, weights=weights)
     if in_ch == 1:
       model.features[0][0] = nn.Conv2d(in_ch, 32, 3, 2, 1, bias=False)
-    model.classifier[1] = nn.Linear(1408, 10, bias=True)
+    model.classifier[1] = nn.Linear(1408, out_ch, bias=True)
   elif model_name.lower() == "efficientnet_b3":
-    model = models.get_model(model_name, **config)
+    model = models.get_model(model_name, weights=weights)
     if in_ch == 1:
       model.features[0][0] = nn.Conv2d(in_ch, 40, 3, 2, 1, bias=False)
-    model.classifier[1] = nn.Linear(1536, 10, bias=True)
+    model.classifier[1] = nn.Linear(1536, out_ch, bias=True)
   else:
     raise NotImplementedError(model_name)
   return model
 
 
-def load_model(experiment_path: str, checkpoint_number: int) -> torch.nn.Module:
+def load_model(experiment_path: str) -> torch.nn.Module:
   with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
     config = full_load(f)
 
   model = create_model(**config["model"])
 
   state = torch.load(
-    os.path.join(experiment_path, "checkpoints", f"checkpoint_{checkpoint_number}.pt"),
-    map_location=torch.device("cpu"),
-    weights_only=True
+    os.path.join(experiment_path, f"best_state.pt"), map_location=torch.device("cpu"), weights_only=True
   )
   model.load_state_dict(state)
   return model

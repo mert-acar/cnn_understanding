@@ -3,13 +3,13 @@ import torch
 from time import time
 from tqdm import tqdm
 from yaml import full_load
-import matplotlib.pyplot as plt
-import torch.nn.functional as F
 from shutil import rmtree, copyfile
 
 from loss import CompositeLoss
 from model import create_model
 from dataset import get_dataloader
+from utils import get_metric_scores
+from visualize import plot_performance_curves
 
 
 def group_lasso_penalty(model: torch.nn.Module) -> torch.Tensor:
@@ -56,7 +56,14 @@ def main(config_path: str):
   tick = time()
   best_epoch = -1
   best_error = 999999
-  metrics = {'Loss': {'train': [], 'test': []}, 'Accuracy': {'train': [], 'test': []}}
+  phases = ["train", "test"]
+
+  metric_list = ["loss"]
+  if config["metric_list"]:
+    metric_list += config["metric_list"]
+  metrics = {metric.lower(): {phase: [] for phase in phases} for metric in metric_list}
+
+  ckpt_path = os.path.join(config["output_path"], f"best_state.pt")
   for epoch in range(config["num_epochs"]):
     print("-" * 20)
     print(f"Epoch {epoch + 1} / {config['num_epochs']}")
@@ -65,41 +72,36 @@ def main(config_path: str):
         model.train()
       else:
         model.eval()
-      running_error = 0
-      running_accuracy = 0
-      pbar = tqdm(dataloaders[phase], total=len(dataloaders[phase]), ncols=94)
+      running_metrics = {metric.lower(): 0 for metric in metric_list}
       with torch.set_grad_enabled(phase == "train"):
-        for data, target in pbar:
+        for data, target in tqdm(dataloaders[phase], total=len(dataloaders[phase]), ncols=94):
           data, target = data.to(device), target.to(device)
           optimizer.zero_grad()
           output = model(data)
 
-          pred = F.log_softmax(output, dim=1)
-          acc = pred.argmax(1).eq(target).sum().item() / data.shape[0]
-
           loss = criterion(output, target)
+          running_metrics["loss"] += loss.item()
+
           if phase == "train":
             loss.backward()
             optimizer.step()
 
-          running_error += loss.item()
-          running_accuracy += acc
-          pbar.set_description(f"{loss.item():.5f} | {acc * 100:.3f}%")
+          metric_scores = get_metric_scores(metric_list[1:], output, target)
+          for key, score in metric_scores.items():
+            running_metrics[key.lower()] += score
 
-      running_error = running_error / len(dataloaders[phase])
-      running_accuracy = running_accuracy / len(dataloaders[phase])
-      print(f"Loss: {running_error:.5f} | Accuracy: {running_accuracy * 100:.3f}%")
-      metrics["Loss"][phase].append(running_error)
-      metrics["Accuracy"][phase].append(running_accuracy)
+      for key, score in running_metrics.items():
+        score /= len(dataloaders[phase])
+        print(f"{key}: {score:.3f}")
+        metrics[key][phase].append(score)
+
       if phase == "test":
-        scheduler.step(running_error)
-        if running_error < best_error:
-          best_error = running_error
+        scheduler.step(running_metrics["loss"])
+        if running_metrics["loss"] < best_error:
+          best_error = running_metrics["loss"]
           best_epoch = epoch
-
-    ckpt_path = os.path.join(config["output_path"], "checkpoints", f"checkpoint_{epoch + 1}.pt")
-    print(f"+ Saving the model to {ckpt_path}...")
-    torch.save(model.state_dict(), ckpt_path)
+          print(f"+ Saving the model to {ckpt_path}...")
+          torch.save(model.state_dict(), ckpt_path)
 
     # If no validation improvement has been recorded for "early_stop" number of epochs
     # stop the training.
@@ -111,18 +113,7 @@ def main(config_path: str):
   m, s = divmod(total_time, 60)
   h, m = divmod(m, 60)
   print(f"Training took {int(h):d} hours {int(m):d} minutes {s:.2f} seconds.")
-
-  fig, axs = plt.subplots(1, len(metrics), tight_layout=True, figsize=(10, 5))
-  epochs = list(range(1, epoch + 1))
-  for i, (metric, arr) in enumerate(metrics.items()):
-    for phase, val in arr.items():
-      axs[i].plot(epochs, val, label=phase)
-    axs[i].set_xlabel("Epochs")
-    axs[i].set_ylabel(metric)
-    axs[i].legend()
-    axs[i].grid(True)
-  fig.suptitle("Model Performance Across Epochs")
-  plt.savefig(os.path.join(config["output_path"], "performance_curves.png"), bbox_inches="tight")
+  plot_performance_curves(metrics, config["output_path"])
 
 
 if __name__ == "__main__":

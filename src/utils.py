@@ -1,15 +1,8 @@
-import re
-import os
-import math
+import torch
 import numpy as np
-from glob import glob
-from scipy.io import loadmat
-from kneed import KneeLocator
-from typing import List, Union
+from math import isqrt
 
-
-def load_MNIST_labels() -> np.ndarray:
-  return loadmat("../data/mnist/labels.mat")["labels"][0]
+from typing import Union, List, Dict
 
 
 def combine_scores(data):
@@ -48,27 +41,8 @@ def rescale(x: np.ndarray) -> np.ndarray:
   return x
 
 
-def extract_epoch(key: str) -> int:
-  match = re.search(r'epoch_(\d+)', key)
-  return int(match.group(1)) if match else 0
-
-
-def get_filenames(experiment_path: str, reverse: bool = True, ext: str = "mat") -> List[str]:
-  return sorted(glob(os.path.join(experiment_path, f"*.{ext}")), key=extract_epoch, reverse=reverse)
-
-
-def find_non_zero_idx(data: np.ndarray, beta: float = 0.95) -> np.ndarray:
-  _, C, H, W = data.shape
-  stat = np.reshape(np.abs(data).mean(0), (C, H * W)).mean(-1)
-  y = np.sort(stat)[::-1]
-  x = list(range(len(y)))
-  kn = KneeLocator(x, y, curve='convex', direction='decreasing').knee
-  non_zero_idx = stat >= y[kn] * beta
-  return non_zero_idx
-
-
 def closest_factors(n: int) -> tuple[int, int]:
-  root = int(math.isqrt(n))
+  root = int(isqrt(n))
   for i in range(root, 0, -1):
     if n % i == 0:
       return (i, n // i)
@@ -94,3 +68,19 @@ def svd_reduction(
   s_k = s[:k]
   recon = np.dot(u_k, np.diag(s_k))
   return recon
+
+
+def calculate_accuracy(output: torch.Tensor, target: torch.Tensor) -> float:
+  pred = torch.nn.functional.log_softmax(output, dim=1)
+  acc = pred.argmax(1).eq(target).sum().item() / output.shape[0]
+  return acc
+
+
+def get_metric_scores(metric_list: List[str], output: torch.Tensor, target: torch.Tensor) -> Dict[str, float]:
+  out = {}
+  for metric in metric_list:
+    if metric.lower() == "accuracy":
+      out[metric] = calculate_accuracy(output, target)
+    else:
+      print(f"Metric [{metric}] is not implemented, skipping...")
+  return out

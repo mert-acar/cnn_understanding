@@ -3,6 +3,7 @@ from tqdm import tqdm
 from numpy.linalg import svd
 from scipy.spatial.distance import cdist
 
+
 def similarity(x, y, y_facet, na=4, nb=0.5):
   diff = y - x
   basis_matrix = y_facet[0]
@@ -11,18 +12,21 @@ def similarity(x, y, y_facet, na=4, nb=0.5):
   projection_matrix = np.dot(basis_matrix.T, np.dot(BTB_inv, basis_matrix))
   subspace_component = np.linalg.norm(np.dot(projection_matrix, diff))
   normal_component = np.linalg.norm(diff - subspace_component)
-  alpha_sim = 1 / (1 + ((normal_component / 2) ** na))
-  beta_sim = 1 / (1 + (subspace_component ** nb))
+  alpha_sim = 1 / (1 + ((normal_component / 2)**na))
+  beta_sim = 1 / (1 + (subspace_component**nb))
   return alpha_sim * beta_sim
+
 
 def pw_similarity(x, x_facet, y, y_facet, na=4, nb=0.5):
   return (similarity(x, y, y_facet, na, nb) + similarity(y, x, x_facet, na, nb)) / 2
+
 
 def find_facets(planes, points):
   residues = np.zeros((len(points), len(planes)))
   for i in tqdm(range(len(planes)), desc="Assigning points to facets"):
     residues[:, i] = get_residue(points - planes[i][1], planes[i][0])
   return np.argmin(residues, axis=1)
+
 
 def transform(planes, points):
   facet_planes = np.array([x[0] for x in planes])
@@ -42,10 +46,8 @@ def transform(planes, points):
 
   chosen_facets = np.argmin(all_residues, axis=1)
 
-  alphas = np.matmul(
-    (points - plane_centers[chosen_facets])[:, np.newaxis, :],
-    np.transpose(facet_planes[chosen_facets], (0, 2, 1))
-  )
+  alphas = np.matmul((points - plane_centers[chosen_facets])[:, np.newaxis, :],
+                     np.transpose(facet_planes[chosen_facets], (0, 2, 1)))
 
   transformed_points = plane_centers[chosen_facets] + np.squeeze(
     np.matmul(alphas, facet_planes[chosen_facets]), axis=1

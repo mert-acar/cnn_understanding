@@ -5,6 +5,9 @@ from typing import Tuple, Optional
 from sklearn import metrics, cluster
 from scipy.optimize import linear_sum_assignment
 
+from utils import normalize
+from manifold import get_facet_planes, find_facets, pw_similarity
+
 
 def cluster_accuracy(pred_labels: np.ndarray, true_labels: np.ndarray) -> float:
   return (pred_labels == true_labels).mean()
@@ -53,7 +56,6 @@ if __name__ == "__main__":
   import pickle as p
   import pandas as pd
   from tqdm import tqdm
-  from time import time
   from tabulate import tabulate
   from collections import defaultdict
   from sklearn.decomposition import PCA
@@ -61,26 +63,19 @@ if __name__ == "__main__":
   from mlr import train_mlr
   from model import HOOK_TARGETS
   from visualize import plot_scores
-  from utils import load_ImageNet_labels, load_MNIST_labels, load_CIFAR10_labels
+  from utils import load_MNIST_labels, load_CIFAR10_labels
 
-  model_name = "resnet18"
-  dataset = "MNIST"
-  identifier = "spectral_pca3"
+  model_name = "resnet18mcr"
+  dataset = "CIFAR10"
+  labels = load_CIFAR10_labels()
+  # labels = load_MNIST_labels()
   low, high = 5, 15
-  idx = None
-  if dataset == "MNIST":
-    labels = load_MNIST_labels()
-  elif dataset == "CIFAR10":
-    labels = load_CIFAR10_labels()
-  elif dataset == "IMAGENET":
-    labels = load_ImageNet_labels()
-  else:
-    raise NotImplementedError
+  idx = None # np.random.randint(0, len(labels), 2000)
 
   if idx is not None:
     labels = labels[idx]
 
-  exp_dir = f"../logs/{model_name}_{dataset}/"
+  exp_dir = f"../logs/resnet18_CIFAR10_MCR/"
   out_path = os.path.join(exp_dir, "clusters")
   os.makedirs(out_path, exist_ok=True)
 
@@ -97,18 +92,45 @@ if __name__ == "__main__":
     if idx is not None:
       x = x[idx]
 
-    # [N, C, H, W] -> [N, C*H*W]
-    x = x.reshape(x.shape[0], -1)
+    # [N, C, H, W] -> [N, C]
+    if x.ndim == 4:
+      x = x.mean(-1).mean(-1)
 
-    print(f"Before PCA: {x.shape}")
-    tick = time()
-    x = PCA(n_components=3, whiten=True).fit_transform(x)
-    print(f"PCA took {time() - tick:.3f} seconds")
-    print(f"After PCA: {x.shape}")
+    # [N, C, H, W] -> [N, C*H*W]
+    # x = x.reshape(x.shape[0], -1)
+
+    # print(f"Before PCA: {x.shape}")
+    # tick = time()
+    # x = StandardScaler().fit_transform(x)
+    # x = PCA(n_components=0.95).fit_transform(x)
+    # print(f"PCA took {time() - tick:.3f} seconds")
+    # print(f"After PCA: {x.shape}")
+
+    x = normalize(x, 1)
+
+    # planes = get_facet_planes(x, 3, 0.05)
+
+    # chosen_facets = find_facets(planes, x)
+
+    # sim_mat = np.zeros((len(x), len(x)))
+    # for i in tqdm(range(len(x)), desc="finding similarities"):
+    #   for j in range(i, len(x)):
+    #     if i == j:
+    #       sim_mat[i, j] = 1
+    #       continue
+    #     kx, ky = x[i], x[j]
+    #     x_facet, y_facet = planes[chosen_facets[i]], planes[chosen_facets[j]]
+    #     similarity = pw_similarity(kx, x_facet, ky, y_facet)
+    #     sim_mat[i, j] = similarity
+    #     sim_mat[j, i] = similarity
 
     for k in tqdm(range(low, high)):
-      cluster_labels = train_mlr(x, k)
-      # cluster_labels = cluster.MiniBatchKMeans(n_clusters=k, batch_size=2048).fit_predict(x)
+      # cluster_labels = train_mlr(x, k)
+      cluster_labels = cluster.MiniBatchKMeans(n_clusters=k, batch_size=2048).fit_predict(x)
+
+      # cluster_labels = cluster.SpectralClustering(
+      #   n_clusters=k, affinity="precomputed", assign_labels="cluster_qr", n_jobs=-1
+      # ).fit_predict(sim_mat)
 
       perf = {
         "k": k,

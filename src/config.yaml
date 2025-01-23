@@ -3,9 +3,10 @@ dataset: mnist
 
 # Model
 model:
-  model_name: resnet18
-  config:
-    weights: DEFAULT
+  model_name: resnet18 # resnet18ctrl
+  weights: DEFAULT
+  in_ch: 1
+  out_ch: 10
 
 # Training
 batch_size: 64
@@ -13,20 +14,21 @@ num_workers: 4
 num_epochs: 100
 learning_rate: 0.001
 weight_decay: 0.0005
+metric_list: ["Accuracy"]
 criterion_args:
-  # cross_entropy_loss: {weight: 1.0}
+  cross_entropy_loss: {weight: 1.0}
   # cluster_inducing_loss: {weight: 0.5}
-  maximal_coding_rate_reduction: {
-    weight: 1.0,
-    args: {
-      gam1: 20,
-      gam2: 15,
-      eps: 0.5,
-    }
-  }
+  # maximal_coding_rate_reduction: {
+  #   weight: 1.0,
+  #   args: {
+  #     gam1: 20,
+  #     gam2: 15,
+  #     eps: 0.5,
+  #   }
+  # }
 scheduler_factor: 0.1
-scheduler_patience: 2
+scheduler_patience: 3
 
-early_stop: 4
+early_stop: 6
 
-output_path: ../logs/resnet18_MNIST_MCR/
+output_path: ../logs/temp/
