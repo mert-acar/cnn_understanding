@@ -32,9 +32,7 @@ def get_device() -> torch.device:
   if torch.cuda.is_available():
     return torch.device("cuda")
   elif torch.backends.mps.is_available():
-    os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = (
-      "1"  # fallback to cpu if an mps-incompatible op is tried
-    )
+    os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
     return torch.device("mps")
   else:
     return torch.device("cpu")

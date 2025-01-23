@@ -8,10 +8,34 @@ import torch.nn.functional as F
 HOOK_TARGETS = {
   "densenet121": ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)],
   "resnet18": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)],
+  "smallnet": ["layer"],
   "resnet18ctrl": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)],
   "efficientnetb2": [f"features.{i}" for i in range(1, 8)],
   "efficientnetb3": [f"features.{i}" for i in range(1, 8)]
 }
+
+
+class SmallNet(nn.Module):
+  def __init__(
+    self,
+    in_ch: int = 1,
+    num_filters: int = 32,
+    kernel_size: int = 7,
+    stride: int = 3,
+    padding: int = 1,
+    bias: bool = False,
+    **kwargs
+  ):
+    super().__init__()
+    self.layer = torch.nn.Conv2d(in_ch, num_filters, kernel_size, stride, padding, bias=bias)
+    k = (28 + (2 * padding) - kernel_size) // stride + 1
+    self.attention = torch.nn.Parameter(torch.ones((num_filters * k * k,)), requires_grad=True)
+
+  def forward(self, x: torch.Tensor) -> torch.Tensor:
+    act = self.layer(x)
+    act = act.view(act.size(0), -1)
+    act = (self.attention ** 2) * act
+    return F.normalize(act)
 
 
 class ResNet18CTRL(nn.Module):
@@ -48,6 +72,8 @@ def create_model(
     model.fc = nn.Linear(512, out_ch, bias=True)
   elif model_name.lower() == "resnet18ctrl":
     model = ResNet18CTRL(in_ch)
+  elif model_name.lower() == "smallnet":
+    model = SmallNet(in_ch, **kwargs)
   elif model_name.lower() == "densenet121":
     model = models.get_model(model_name, weights=weights)
     if in_ch == 1:

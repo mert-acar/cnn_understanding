@@ -3,17 +3,19 @@ dataset: mnist
 
 # Model
 model:
-  model_name: resnet18ctrl # resnet18ctrl
-  weights: DEFAULT
+  model_name: smallnet # resnet18ctrl
   in_ch: 1
-  out_ch: 10
+  num_filters: 32
+  kernel_size: 7
+  stride: 3
+  padding: 1
 
 # Training
-batch_size: 64
+batch_size: 2
 num_workers: 4
 num_epochs: 100
-learning_rate: 0.001
-weight_decay: 0.0005
+learning_rate: 0.01
+weight_decay: 0.005
 metric_list: []
 criterion_args:
   # cross_entropy_loss: {weight: 1.0}
@@ -31,4 +33,4 @@ scheduler_patience: 3
 
 early_stop: 6
 
-output_path: ../logs/temp/
+output_path: ../logs/smallnet_MNIST_ATTN/
