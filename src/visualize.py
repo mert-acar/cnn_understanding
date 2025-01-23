@@ -190,50 +190,22 @@ def plot_scores(df, identifier, out_path):
 
 if __name__ == "__main__":
   import os
-  import pickle as p
-  from model import HOOK_TARGETS
-  from utils import load_MNIST_labels
-  from sklearn.decomposition import PCA
-  from sklearn.preprocessing import StandardScaler
+  from math import sqrt
+  from model import load_model
+  from dataset import get_labels
 
-  model_name = "resnet18mcr"
-  dataset = "CIFAR10"
-  vars = HOOK_TARGETS[model_name]
-  labels = load_MNIST_labels()
-  experiments = [f"../logs/resnet18_CIFAR10_MCR/activations"]
+  model_name = "smallnet"
+  dataset = "MNIST"
+  labels = get_labels(dataset, "test")
 
-  # exp_dir = f"../logs/{model_name}_{dataset}2/activations"
-  # exp_dir = f"../logs/{model_name}_{dataset}_CIL2/activations"
-  for var in vars[-1:]:
-    var = var.replace(".", "_")
-    print(var)
-    fig = plt.figure(figsize=(11, 10))
-    for i, exp_dir in enumerate(experiments):
-      with open(os.path.join(exp_dir, f"{var}_act.p"), "rb") as f:
-        activations = p.load(f)
-
-      # activations = activations.reshape(activations.shape[0], -1)
-      # activations = StandardScaler().fit_transform(activations)
-      activations = PCA(n_components=3).fit_transform(activations)
-
-      ax = fig.add_subplot(121 + i, projection='3d')
-      x = activations[:, 0]
-      y = activations[:, 1]
-      z = activations[:, 2]
-      ax.scatter(x, y, z, c=labels, cmap="viridis", s=3)
-      ax.set_xlabel('PC1')
-      ax.set_ylabel('PC2')
-      ax.set_zlabel('PC3')
-      ax.set_title(f"{var}{'_CIL' if i == 1 else ''}")
-    plt.show()
-    plt.clf()
-    plt.close("all")
-
-  # identifier = "kmeans"
-  # data_path = f"clusters/{identifier}_scores.csv"
-  # out_path = os.path.join(exp_dir, "figures")
-  # os.makedirs(out_path, exist_ok=True)
-  #
-  # df = pd.read_csv(os.path.join(exp_dir, data_path))
-  # df["silhouette"] = (df["silhouette"] + 1) / 2
-  # plot_scores(df, identifier, out_path)
+  model = load_model("../logs/smallnet_MNIST_ATTN/")
+  attn_map = model.attention
+  k = int(sqrt(attn_map.shape[0] // 32))
+  attn_map = attn_map.view(32, k, k).detach().numpy()
+  fig, axs = plt.subplots(4, 8, tight_layout=True)
+  for i in range(32):
+    k, l = i // 8, i % 8
+    axs[k, l].imshow(attn_map[i], cmap='gray')
+    axs[k, l].set_title(f"Map {i + 1}")
+    axs[k, l].axis(False)
+  plt.show()
