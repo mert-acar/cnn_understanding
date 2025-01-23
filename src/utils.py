@@ -25,7 +25,7 @@ def create_dir(output_path: str):
     else:
       print("Exit!")
       raise SystemExit
-  os.makedirs(os.path.join(output_path, "checkpoints"))
+  os.makedirs(output_path)
 
 
 def get_device() -> torch.device:
