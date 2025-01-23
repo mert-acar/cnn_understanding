@@ -2,20 +2,19 @@ import os
 import torch
 from tqdm import tqdm
 from yaml import full_load
-from model import load_model
 import torch.nn.functional as F
-from dataset import get_dataloader
 from torch.utils.data import DataLoader
+
+from utils import get_device
+from model import load_model
+from dataset import get_dataloader
 
 
 def main(experiment_path: str):
   with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
     config = full_load(f)
-
-  device = torch.device("cuda" if torch.cuda.is_available() else "mps")
-
+  device = get_device()
   dataloader = get_dataloader(split="test", **config)
-
   model = load_model(experiment_path).to(device)
   model.eval()
   criterion = torch.nn.CrossEntropyLoss()
@@ -23,9 +22,8 @@ def main(experiment_path: str):
   print(f"Accuracy: {results['accuracy'] * 100:.3f}% | Loss: {results['loss']:.3f}")
 
 
-def test(
-  model: torch.nn.Module, dataloader: DataLoader, criterion: torch.nn.Module, device: torch.device
-) -> dict[str, float]:
+def test(model: torch.nn.Module, dataloader: DataLoader, criterion: torch.nn.Module,
+         device: torch.device) -> dict[str, float]:
   running_accuracy = 0
   running_error = 0
   pbar = tqdm(dataloader, total=len(dataloader), ncols=94)

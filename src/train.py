@@ -3,13 +3,13 @@ import torch
 from time import time
 from tqdm import tqdm
 from yaml import full_load
-from shutil import rmtree, copyfile
+from shutil import copyfile
 
 from loss import CompositeLoss
 from model import create_model
 from dataset import get_dataloader
-from utils import get_metric_scores
 from visualize import plot_performance_curves
+from utils import get_metric_scores, get_device, create_dir
 
 
 def group_lasso_penalty(model: torch.nn.Module) -> torch.Tensor:
@@ -25,17 +25,11 @@ def main(config_path: str):
     config = full_load(f)
 
   # Create the checkpoint output path
-  if os.path.exists(config["output_path"]):
-    c = input(f"Output path {config['output_path']} is not empty! Do you want to delete the folder [y / n]: ")
-    if "y" == c.lower():
-      rmtree(config["output_path"], ignore_errors=True)
-    else:
-      print("Exit!")
-      raise SystemExit
-  os.makedirs(os.path.join(config["output_path"], "checkpoints"))
+  create_dir(config["output_path"])
+  ckpt_path = os.path.join(config["output_path"], f"best_state.pt")
   copyfile("config.yaml", os.path.join(config["output_path"], "ExperimentSummary.yaml"))
 
-  device = torch.device("cuda" if torch.cuda.is_available() else "mps")
+  device = get_device()
   print(f"[INFO] Running on {device}")
 
   dataloaders = {
@@ -62,12 +56,10 @@ def main(config_path: str):
   if config["metric_list"]:
     metric_list += config["metric_list"]
   metrics = {metric.lower(): {phase: [] for phase in phases} for metric in metric_list}
-
-  ckpt_path = os.path.join(config["output_path"], f"best_state.pt")
   for epoch in range(config["num_epochs"]):
     print("-" * 20)
     print(f"Epoch {epoch + 1} / {config['num_epochs']}")
-    for phase in ["train", "test"]:
+    for phase in phases:
       if phase == "train":
         model.train()
       else:
@@ -92,8 +84,9 @@ def main(config_path: str):
 
       for key, score in running_metrics.items():
         score /= len(dataloaders[phase])
-        print(f"{key}: {score:.3f}")
+        print(f"{key}: {score:.3f}", end=" | ")
         metrics[key][phase].append(score)
+      print()
 
       if phase == "test":
         scheduler.step(running_metrics["loss"])
