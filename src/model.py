@@ -29,12 +29,16 @@ class SmallNet(nn.Module):
     super().__init__()
     self.layer = torch.nn.Conv2d(in_ch, num_filters, kernel_size, stride, padding, bias=bias)
     k = (28 + (2 * padding) - kernel_size) // stride + 1
-    self.attention = torch.nn.Parameter(torch.ones((num_filters * k * k,)), requires_grad=True)
+    in_feat = k * k * num_filters
+    self.attention = torch.nn.Sequential(
+      torch.nn.Linear(in_feat, in_feat, bias=False),
+      torch.nn.Sigmoid()
+    )
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     act = self.layer(x)
     act = act.view(act.size(0), -1)
-    act = (self.attention ** 2) * act
+    act = self.attention(act)
     return F.normalize(act)
 
 
