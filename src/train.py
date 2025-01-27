@@ -12,9 +12,6 @@ from visualize import plot_performance_curves
 from utils import get_metric_scores, get_device, create_dir
 
 
-def attention_penalty(model: torch.nn.Module, coeff: float = 0.01) -> torch.Tensor:
-  return coeff * model.attention.sum()
-
 def group_lasso_penalty(model: torch.nn.Module) -> torch.Tensor:
   penalty = 0
   for name, param in model.named_parameters():
@@ -54,7 +51,6 @@ def main(config_path: str):
   best_epoch = -1
   best_error = 999999
   phases = ["test", "train"]
-  # phases = ["train", "test"]
 
   metric_list = ["loss"]
   if config["metric_list"]:
@@ -76,7 +72,6 @@ def main(config_path: str):
           output = model(data)
 
           loss = criterion(output, target)
-          loss += attention_penalty(model)
           running_metrics["loss"] += loss.item()
 
           if phase == "train":
