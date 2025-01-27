@@ -12,7 +12,8 @@ from typing import Dict, List
 
 
 def plot_performance_curves(metrics: Dict[str, Dict[str, List[float]]], output_path: str):
-  fig, axs = plt.subplots(1, len(metrics), tight_layout=True, figsize=(10, 5))
+  fig, axs = plt.subplots(1, len(metrics), tight_layout=True, figsize=(10, 5), squeeze=False)
+  axs = axs[0]
   epochs = list(range(1, len(metrics["loss"]["train"]) + 1))
   for i, (metric, arr) in enumerate(metrics.items()):
     for phase, val in arr.items():

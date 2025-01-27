@@ -50,7 +50,7 @@ class MaximalCodingRateReduction(torch.nn.Module):
     self.gam1 = gam1
     self.gam2 = gam2
     self.eps = eps
-    self.num_classes = 10
+    self.num_classes = num_classes
 
   def compute_discrimn_loss_empirical(self, embed: torch.Tensor) -> torch.Tensor:
     p, m = embed.shape

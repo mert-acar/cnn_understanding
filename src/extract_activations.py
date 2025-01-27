@@ -5,13 +5,10 @@ from typing import Union, Callable
 from collections import defaultdict
 from torch.utils.data import DataLoader
 
-
 hooked_activations = defaultdict(list)
 
 
-def get_patches(
-  activations: torch.Tensor, window_size: int, stride: int, padding: int = 0
-) -> torch.Tensor:
+def get_patches(activations: torch.Tensor, window_size: int, stride: int, padding: int = 0) -> torch.Tensor:
   if padding != 0:
     activations = F.pad(activations, [padding] * 4)
   return F.unfold(activations, kernel_size=(window_size, window_size), stride=stride)
@@ -65,13 +62,15 @@ def hook_layers(model: torch.nn.Module, targets: list[str]):
 
 if __name__ == "__main__":
   import os
-  import pickle as p
+  import numpy as np
   from dataset import get_dataloader
   from model import load_model, HOOK_TARGETS
 
-  model_name = "resnet18mcr"
-  dataset = "CIFAR10"
-  experiment_path = f"../logs/resnet18_CIFAR10_MCR/"
+  model_name = "smallnet"
+  dataset = "MNIST"
+  iden = ""
+  exp = "_".join([model_name, dataset]) + (f"_{iden}" if iden != "" else "")
+  experiment_path  = os.path.join("../logs", exp)
 
   dataloader = get_dataloader(dataset, "test")
   model = load_model(experiment_path)
@@ -86,5 +85,4 @@ if __name__ == "__main__":
   for key in hooked_activations:
     hooked_activations[key] = torch.cat(hooked_activations[key], 0).cpu().numpy()
     print(key, "→", hooked_activations[key].shape)
-    with open(os.path.join(out_path, f"{key.replace('.', '_')}_act.p"), "wb") as f:
-      p.dump(hooked_activations[key], f, protocol=p.HIGHEST_PROTOCOL)
+    np.save(os.path.join(out_path, f"{key.replace('.', '_')}_act.npy"), hooked_activations[key])

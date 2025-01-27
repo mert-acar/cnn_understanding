@@ -5,13 +5,13 @@ from yaml import full_load
 from torchvision import models
 import torch.nn.functional as F
 
-from typing import Optional
+from typing import Optional, Union, Dict, Any, Tuple
 
 HOOK_TARGETS = {
   "densenet121": ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)],
   "resnet18": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)],
-  "smallnet": ["layer"],
-  "resnet18ctrl": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)],
+  "smallnet": ["layer", "attention", "reshape_norm"],
+  "resnet18ctrl": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)] + ["reshape_norm"],
   "efficientnetb2": [f"features.{i}" for i in range(1, 8)],
   "efficientnetb3": [f"features.{i}" for i in range(1, 8)]
 }
@@ -58,6 +58,11 @@ class CBAM(nn.Module):
     return self.sam(self.cam(x))
 
 
+class ReshapeNormalize(nn.Module):
+  def forward(self, x: torch.Tensor) -> torch.Tensor:
+    return F.normalize(x.view(x.size(0), -1))
+
+
 class SingleLayer(nn.Module):
   def __init__(
     self,
@@ -80,12 +85,13 @@ class SingleLayer(nn.Module):
     else:
       print(f"{attention} is not implemented. Reverting to identity")
       self.attention = nn.Identity()
+    self.reshape_norm = ReshapeNormalize()
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     act = self.layer(x)
     act = self.attention(act)
-    act = act.view(act.size(0), -1)
-    return F.normalize(act)
+    act = self.reshape_norm(act)
+    return act
 
 
 class ResNet18CTRL(nn.Module):
@@ -100,6 +106,7 @@ class ResNet18CTRL(nn.Module):
     self.layer3 = model.layer3
     self.layer4 = model.layer4
     self.avgpool = model.avgpool
+    self.reshape_norm = ReshapeNormalize()
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     out = self.maxpool(F.relu(self.bn1(self.conv1(x))))
@@ -108,8 +115,8 @@ class ResNet18CTRL(nn.Module):
     out = self.layer3(out)
     out = self.layer4(out)
     out = self.avgpool(out)
-    out = out.view(out.size(0), -1)
-    return F.normalize(out)
+    out = self.reshape_norm(out)
+    return out
 
 
 def create_model(
@@ -144,7 +151,8 @@ def create_model(
   return model
 
 
-def load_model(experiment_path: str) -> torch.nn.Module:
+def load_model(experiment_path: str,
+               return_config: bool = False) -> Union[torch.nn.Module, Tuple[torch.nn.Module, Dict[str, Any]]]:
   with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
     config = full_load(f)
 
@@ -154,6 +162,8 @@ def load_model(experiment_path: str) -> torch.nn.Module:
     os.path.join(experiment_path, f"best_state.pt"), map_location=torch.device("cpu"), weights_only=True
   )
   model.load_state_dict(state)
+  if return_config:
+    return model, config
   return model
 
 

@@ -9,48 +9,6 @@ from utils import normalize
 from manifold import get_facet_planes, find_facets, pw_similarity
 
 
-def cluster_accuracy(pred_labels: np.ndarray, true_labels: np.ndarray) -> float:
-  return (pred_labels == true_labels).mean()
-
-
-def bcss_wcss(x: np.ndarray,
-              cluster_labels: np.ndarray,
-              return_chi: bool = False) -> Tuple[float, float, Optional[float]]:
-  n_labels = len(set(cluster_labels))
-  extra_disp, intra_disp = 0.0, 0.0
-  mean = np.mean(x, axis=0)
-  for k in range(n_labels):
-    cluster_k = x[cluster_labels == k]
-    mean_k = np.mean(cluster_k, axis=0)
-    extra_disp += len(cluster_k) * np.sum((mean_k - mean)**2)
-    intra_disp += np.sum((cluster_k - mean_k)**2)
-  if return_chi:
-    chi = extra_disp * (len(x) - n_labels) / (intra_disp * (n_labels - 1.0))
-    return extra_disp, intra_disp, chi
-  return extra_disp, intra_disp, None
-
-
-def map_clusters(label_a: np.ndarray, labels_b: np.ndarray) -> Tuple[np.ndarray, dict[int, int]]:
-  unique_clusters = np.unique(label_a)
-  unique_true_labels = np.unique(labels_b)
-  cost_matrix = np.zeros((len(unique_clusters), len(unique_true_labels)))
-  for i, cluster in enumerate(unique_clusters):
-    for j, label in enumerate(unique_true_labels):
-      count = np.sum((label_a == cluster) & (labels_b == label))
-      cost_matrix[i, j] = -count
-  _, col_ind = linear_sum_assignment(cost_matrix)
-  cluster_to_label_map = {}
-  for i, cluster in enumerate(unique_clusters):
-    mapped_label = unique_true_labels[col_ind[i]]
-    cluster_to_label_map[cluster] = mapped_label
-  new_cluster_labels = np.array([cluster_to_label_map[cluster] for cluster in label_a])
-  return new_cluster_labels, cluster_to_label_map
-
-
-def normalized_minkowski(x: np.ndarray, y: np.ndarray) -> float:
-  return np.linalg.norm(x - y) / np.sqrt(x.shape[0])
-
-
 if __name__ == "__main__":
   import os
   import pickle as p
@@ -60,7 +18,6 @@ if __name__ == "__main__":
   from collections import defaultdict
   from sklearn.decomposition import PCA
 
-  from mlr import train_mlr
   from model import HOOK_TARGETS
   from visualize import plot_scores
   from utils import load_MNIST_labels, load_CIFAR10_labels
@@ -125,7 +82,6 @@ if __name__ == "__main__":
     #     sim_mat[j, i] = similarity
 
     for k in tqdm(range(low, high)):
-      # cluster_labels = train_mlr(x, k)
       cluster_labels = cluster.MiniBatchKMeans(n_clusters=k, batch_size=2048).fit_predict(x)
 
       # cluster_labels = cluster.SpectralClustering(

@@ -2,22 +2,14 @@ import os
 import torch
 from time import time
 from tqdm import tqdm
-from yaml import full_load
 from shutil import copyfile
+from yaml import full_load, dump
 
 from loss import CompositeLoss
 from model import create_model
 from dataset import get_dataloader
+from utils import get_device, create_dir
 from visualize import plot_performance_curves
-from utils import get_metric_scores, get_device, create_dir
-
-
-def group_lasso_penalty(model: torch.nn.Module) -> torch.Tensor:
-  penalty = 0
-  for name, param in model.named_parameters():
-    if 'features' in name:
-      penalty += torch.norm(torch.norm(param.view(param.shape[0], -1), p=2, dim=1), p=1)
-  return penalty
 
 
 def main(config_path: str):
@@ -49,13 +41,13 @@ def main(config_path: str):
 
   tick = time()
   best_epoch = -1
-  best_error = 999999
   phases = ["test", "train"]
 
   metric_list = ["loss"]
-  if config["metric_list"]:
-    metric_list += config["metric_list"]
+  if config["measure_accuracy"]:
+    metric_list.append("accuracy")
   metrics = {metric.lower(): {phase: [] for phase in phases} for metric in metric_list}
+  best_metrics = {metric.lower(): 0 for metric in metric_list}
   for epoch in range(config["num_epochs"]):
     print("-" * 20)
     print(f"Epoch {epoch + 1} / {config['num_epochs']}")
@@ -78,9 +70,10 @@ def main(config_path: str):
             loss.backward()
             optimizer.step()
 
-          metric_scores = get_metric_scores(metric_list[1:], output, target)
-          for key, score in metric_scores.items():
-            running_metrics[key.lower()] += score
+          if config["measure_accuracy"]:
+            pred = torch.nn.functional.log_softmax(output, dim=1)
+            acc = pred.argmax(1).eq(target).sum().item() / output.shape[0]
+            running_metrics["accuracy"] += acc
 
       for key, score in running_metrics.items():
         score /= len(dataloaders[phase])
@@ -90,8 +83,9 @@ def main(config_path: str):
 
       if phase == "test":
         scheduler.step(running_metrics["loss"])
-        if running_metrics["loss"] < best_error:
-          best_error = running_metrics["loss"]
+        if running_metrics["loss"] < best_metrics["loss"]:
+          for key, score in running_metrics.items():
+            best_metrics[key] = score
           best_epoch = epoch
           print(f"+ Saving the model to {ckpt_path}...")
           torch.save(model.state_dict(), ckpt_path)
@@ -106,7 +100,14 @@ def main(config_path: str):
   m, s = divmod(total_time, 60)
   h, m = divmod(m, 60)
   print(f"Training took {int(h):d} hours {int(m):d} minutes {s:.2f} seconds.")
+
   plot_performance_curves(metrics, config["output_path"])
+
+  with open(os.path.join(config["output_path"], "ExperimentSummary.yaml"), "r") as f:
+    config = full_load(f)
+  config.update(best_metrics)
+  with open(os.path.join(config["output_path"], "ExperimentSummary.yaml"), "w") as f:
+    dump(config, f)
 
 
 if __name__ == "__main__":

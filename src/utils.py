@@ -91,19 +91,3 @@ def svd_reduction(
   s_k = s[:k]
   recon = np.dot(u_k, np.diag(s_k))
   return recon
-
-
-def calculate_accuracy(output: torch.Tensor, target: torch.Tensor) -> float:
-  pred = torch.nn.functional.log_softmax(output, dim=1)
-  acc = pred.argmax(1).eq(target).sum().item() / output.shape[0]
-  return acc
-
-
-def get_metric_scores(metric_list: List[str], output: torch.Tensor, target: torch.Tensor) -> Dict[str, float]:
-  out = {}
-  for metric in metric_list:
-    if metric.lower() == "accuracy":
-      out[metric] = calculate_accuracy(output, target)
-    else:
-      print(f"Metric [{metric}] is not implemented, skipping...")
-  return out

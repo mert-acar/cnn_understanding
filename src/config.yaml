@@ -16,7 +16,7 @@ num_workers: 4
 num_epochs: 100
 learning_rate: 0.01
 weight_decay: 0.005
-metric_list: []
+measure_accuracy: true
 criterion_args:
   # cross_entropy_loss: {weight: 1.0}
   # cluster_inducing_loss: {weight: 0.5}
