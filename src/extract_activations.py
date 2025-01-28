@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
   model_name = "smallnet"
   dataset = "MNIST"
-  iden = ""
+  iden = "SAM"
   exp = "_".join([model_name, dataset]) + (f"_{iden}" if iden != "" else "")
   experiment_path  = os.path.join("../logs", exp)
 

@@ -87,6 +87,38 @@ class MaximalCodingRateReduction(torch.nn.Module):
     return total_loss_empi
 
 
+
+@loss_registry.register("calinski_harabasz_index")
+class CalinskiHarabaszLoss(torch.nn.Module):
+  def forward(self, embeddings: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    labels = labels.long().view(-1)
+    n = embeddings.size(0)
+    unique_labels, inverse_indices = torch.unique(labels, return_inverse=True)
+    k = unique_labels.size(0)
+
+    # Handle edge cases (no variance or single cluster)
+    if k < 2 or n == k:
+      return torch.tensor(0.0, device=embeddings.device, requires_grad=True)
+
+    sum_per_cluster = torch.zeros((k, embeddings.size(1)), device=embeddings.device)
+    sum_per_cluster.index_add_(0, inverse_indices, embeddings)
+    counts = torch.bincount(inverse_indices, minlength=k).float().view(-1, 1)
+    cluster_means = sum_per_cluster / counts
+    overall_mean = embeddings.mean(dim=0, keepdim=True)
+
+    # Between-cluster variance (B)
+    diff_b = cluster_means - overall_mean
+    B = (diff_b.pow(2).sum(dim=1) * counts.squeeze()).sum()
+
+    # Within-cluster variance (W)
+    cluster_means_expanded = cluster_means[inverse_indices]
+    diff_w = embeddings - cluster_means_expanded
+    W = diff_w.pow(2).sum(dim=1).sum()
+
+    ch_score = (B * (n - k)) / ((k - 1) * W + 1e-10)
+    return -ch_score
+
+
 class CompositeLoss(torch.nn.Module):
   def __init__(self, modules: dict[str, dict[str, Any]]):
     super().__init__()

@@ -1,14 +1,54 @@
 import os
 import numpy as np
-import pandas as pd
 import matplotlib as mpl
-from pathlib import Path
-from scipy.io import loadmat
 import matplotlib.pyplot as plt
-import plotly.graph_objects as go
+from sklearn.decomposition import PCA
 
 from utils import closest_factors
 from typing import Dict, List
+
+
+def plot_pca(act: np.ndarray, labels: np.ndarray, n_comp: int = 30):
+  n_classes = len(set(labels))
+  pca = PCA(n_components=n_comp).fit(act)
+  sig_vals = [pca.singular_values_]
+  for c in range(n_classes):
+    pca = PCA(n_components=n_comp).fit(act[labels == c])
+    sig_vals.append((pca.singular_values_))
+  fig, ax = plt.subplots(ncols=1, nrows=1)
+  ax.plot(
+    np.arange(n_comp),
+    sig_vals[0][:n_comp],
+    "-p",
+    label="all",
+    color='tomato',
+    alpha=0.6,
+  )
+  for c, sig_val in enumerate(sig_vals[1:]):
+    if c == 0:
+      ax.plot(
+        np.arange(n_comp),
+        sig_val[:n_comp],
+        "-o",
+        color="#89CFF0",
+        label="classes",
+        alpha=0.6,
+      )
+    else:
+      ax.plot(
+        np.arange(n_comp),
+        sig_val[:n_comp],
+        "-o",
+        color="#89CFF0",
+        alpha=0.6,
+      )
+  ax.set_xticks(np.arange(0, n_comp, 5))
+  ax.set_xlabel("components")
+  ax.set_ylabel("sigular values")
+  ax.grid(True)
+  ax.legend()
+  fig.tight_layout()
+  plt.show()
 
 
 def plot_performance_curves(metrics: Dict[str, Dict[str, List[float]]], output_path: str):
@@ -24,33 +64,6 @@ def plot_performance_curves(metrics: Dict[str, Dict[str, List[float]]], output_p
     axs[i].grid(True)
   fig.suptitle("Model Performance Across Epochs")
   plt.savefig(os.path.join(output_path, "performance_curves.png"), bbox_inches="tight")
-
-
-def vis2d(activations: np.ndarray):
-  _, axs = plt.subplots(2, 4, figsize=(11, 10), tight_layout=True)
-  for i, ax in enumerate(axs.ravel()):
-    ax.imshow(activations[i], cmap='gray')
-    ax.axis(False)
-    ax.set_title(f"{np.abs(activations[i]).sum():.3f}")
-  plt.suptitle(f"Avg Activation")
-  plt.show()
-
-
-def vis3d(activations: np.ndarray):
-  fig = plt.figure(figsize=(11, 10))
-  ax = fig.add_subplot(111, projection='3d')
-  x, y, z = np.indices(activations.shape)
-  x = x.flatten()
-  y = y.flatten()
-  z = z.flatten()
-  values = np.abs(activations.flatten())
-  scatter = ax.scatter(x[values > 0], y[values > 0], z[values > 0], c=values[values > 0], cmap='viridis')
-  color_bar = plt.colorbar(scatter, ax=ax)
-  color_bar.set_label('Intensity')
-  ax.set_xlabel('Channels')
-  ax.set_ylabel('H')
-  ax.set_zlabel('W')
-  plt.show()
 
 
 def vis(embedded: np.ndarray, clusters: np.ndarray, labels: np.ndarray):
@@ -72,59 +85,6 @@ def vis(embedded: np.ndarray, clusters: np.ndarray, labels: np.ndarray):
     ax.legend()
   plt.suptitle(f"Activations")
   plt.show()
-
-
-def create_multilayer_sankey(cluster_labels_layers: np.ndarray):
-  num_layers = len(cluster_labels_layers)
-  labels = []
-  sources = []
-  targets = []
-  values = []
-  current_label_idx = 0
-  label_indices = []
-  for layer_idx in range(num_layers):
-    unique_clusters = np.unique(cluster_labels_layers[layer_idx])
-    layer_labels = [f"L{layer_idx+1}_{cluster}" for cluster in unique_clusters]
-    labels.extend(layer_labels)
-    label_indices.append({cluster: current_label_idx + i for i, cluster in enumerate(unique_clusters)})
-    current_label_idx += len(unique_clusters)
-
-  for layer_idx in range(num_layers - 1):
-    clusters_A = cluster_labels_layers[layer_idx]
-    clusters_B = cluster_labels_layers[layer_idx + 1]
-    contingency_table = pd.crosstab(clusters_A, clusters_B)
-    label_idx_A = label_indices[layer_idx]
-    label_idx_B = label_indices[layer_idx + 1]
-    for cluster_A in contingency_table.index:
-      for cluster_B in contingency_table.columns:
-        count = contingency_table.loc[cluster_A, cluster_B]
-        if count > 0:
-          sources.append(label_idx_A[cluster_A])
-          targets.append(label_idx_B[cluster_B])
-          values.append(count)
-
-  fig = go.Figure(
-    go.Sankey(
-      node=dict(pad=15, thickness=20, line=dict(color="black", width=0.5), label=labels),
-      link=dict(source=sources, target=targets, value=values)
-    )
-  )
-  fig.update_layout(title_text="Cluster Transitions Across Layers", font_size=10)
-  fig.show()
-
-
-def main(mode: str, exp_file: str, lbl: str, threshold: float = 0.1):
-  inp_path = Path(exp_file)
-  data = loadmat(inp_path, variable_names=["activations", "labels"])
-  activations = data["activations"]
-  labels = data["labels"][0]
-  activations = activations[labels == lbl][0]
-  activations[np.abs(activations) < threshold] = 0
-  print(f"[INFO] Plotting a random activation for the label {lbl}")
-  if mode == '2d':
-    vis2d(activations)
-  else:
-    vis3d(activations)
 
 
 def plot_scores(df, identifier, out_path):
@@ -187,26 +147,3 @@ def plot_scores(df, identifier, out_path):
   plt.savefig(os.path.join(out_path, f"best_{identifier}.png"), bbox_inches="tight")
   plt.clf()
   plt.close("all")
-
-
-if __name__ == "__main__":
-  import os
-  from math import sqrt
-  from model import load_model
-  from dataset import get_labels
-
-  model_name = "smallnet"
-  dataset = "MNIST"
-  labels = get_labels(dataset, "test")
-
-  model = load_model("../logs/smallnet_MNIST_ATTN/")
-  attn_map = model.attention
-  k = int(sqrt(attn_map.shape[0] // 32))
-  attn_map = attn_map.view(32, k, k).detach().numpy()
-  fig, axs = plt.subplots(4, 8, tight_layout=True)
-  for i in range(32):
-    k, l = i // 8, i % 8
-    axs[k, l].imshow(attn_map[i], cmap='gray')
-    axs[k, l].set_title(f"Map {i + 1}")
-    axs[k, l].axis(False)
-  plt.show()

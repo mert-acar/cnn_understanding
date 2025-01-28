@@ -1,70 +1,63 @@
 import numpy as np
-from sklearn.svm import LinearSVC
-from sklearn import metrics, cluster
+from sklearn import metrics
 
-
-def bcss(x: np.ndarray, pred_labels: np.ndarray) -> float:
-  n_labels = len(set(pred_labels))
-  extra_disp = 0.0
-  mean = x.mean(0)
-  for k in range(n_labels):
-    cluster_k = x[pred_labels == k]
-    mean_k = cluster_k.mean(0)
-    extra_disp += len(cluster_k) * ((mean_k - mean)**2).sum()
-  return float(extra_disp)
-
-
-def wcss(x: np.ndarray, pred_labels: np.ndarray) -> float:
-  n_labels = len(set(pred_labels))
-  intra_disp = 0.0
-  for k in range(n_labels):
-    cluster_k = x[pred_labels == k]
-    mean_k = cluster_k.mean(0)
-    intra_disp += ((cluster_k - mean_k)**2).sum()
-  return float(intra_disp)
-
-
-def cluster_accuracy(pred_labels: np.ndarray, true_labels: np.ndarray) -> float:
-  return (pred_labels == true_labels).mean()
-
-
-def svm(activations: np.ndarray, labels: np.ndarray) -> np.ndarray:
-  model = LinearSVC(random_state=10)
-  model.fit(activations, labels)
-  pred_labels = model.predict(activations)
-  return pred_labels
-
+from cluster import get_clustering_func, cluster_accuracy, bcss, wcss
 
 if __name__ == "__main__":
   import os
   from model import HOOK_TARGETS
   from dataset import get_labels
+  from yaml import dump, full_load
 
   model = "smallnet"
   dataset = "MNIST"
   iden = ""
   exp = "_".join([model, dataset]) + (f"_{iden}" if iden != "" else "")
   exp_dir = os.path.join("../logs", exp)
-  vars = HOOK_TARGETS[model]
+  labels = get_labels(dataset, "test")
 
-  var = vars[0]
+  vars = HOOK_TARGETS[model]
+  var = vars[-1]
+
+  print(f"Working on: {exp_dir} [{var}]\n----------")
   activations = np.load(os.path.join(exp_dir, "activations", f"{var.replace('.', '_')}_act.npy"))
   if activations.ndim != 2:
     activations = activations.reshape(activations.shape[0], -1)
 
-  labels = get_labels(dataset, "test")
+  cluster_root = os.path.join(exp_dir, "clusters")
+  os.makedirs(cluster_root, exist_ok=True)
 
-  print(f"Working on: {exp_dir} [{var}]\n----------")
-  cluster_labels = svm(activations, labels)
+  method = "svm"
+  func_kwargs = {"random_state": 9001}
+  func = get_clustering_func(method, **func_kwargs)
+
+  cluster_label_path = os.path.join(cluster_root, f"{var}_cluster_labels_{method}.npy")
+  if os.path.exists(cluster_label_path):
+    cluster_labels = np.load(cluster_label_path)
+  else:
+    cluster_labels = func(activations, labels)
+    np.save(cluster_label_path, cluster_labels)
+
   scores = {
     "Accuracy": cluster_accuracy(cluster_labels, labels) * 100,
     "Silhouette": metrics.silhouette_score(activations, cluster_labels),
     "BCSS": bcss(activations, cluster_labels),
     "WCSS": wcss(activations, cluster_labels),
     "CHI": metrics.calinski_harabasz_score(activations, cluster_labels),
-    "nmi": metrics.normalized_mutual_info_score(labels, cluster_labels),
+    "NMI": metrics.normalized_mutual_info_score(labels, cluster_labels),
     "homogeneity": metrics.homogeneity_score(labels, cluster_labels),
     "completeness": metrics.completeness_score(labels, cluster_labels),
   }
   for key, score in scores.items():
     print(f"{key:10}: {score:.2f}")
+
+  scores = {var: {key: round(float(value), 3) for key, value in scores.items()}}
+  score_path = os.path.join(cluster_root, f"scores_{method}.yaml")
+  if os.path.exists(score_path):
+    with open(score_path, "r") as f:
+      all_scores = full_load(f)
+  else:
+    all_scores = {}
+  all_scores.update(scores)
+  with open(score_path, "w") as f:
+    dump(all_scores, f)
