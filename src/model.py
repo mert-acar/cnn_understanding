@@ -11,6 +11,7 @@ HOOK_TARGETS = {
   "densenet121": ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)],
   "resnet18": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)],
   "smallnet": ["layer", "attention", "reshape_norm"],
+  "customnet": ["layer", "attention", "reshape_norm"],
   "resnet18ctrl": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)] + ["reshape_norm"],
   "efficientnetb2": [f"features.{i}" for i in range(1, 8)],
   "efficientnetb3": [f"features.{i}" for i in range(1, 8)]
@@ -61,6 +62,41 @@ class CBAM(nn.Module):
 class ReshapeNormalize(nn.Module):
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     return F.normalize(x.view(x.size(0), -1))
+
+class CustomNet(nn.Module):
+  def __init__(
+    self,
+    prev_network_path: str,
+    in_ch: int = 32,
+    num_filters: int = 64,
+    kernel_size: int = 3,
+    stride: int = 1,
+    padding: int = 0,
+    attention: Optional[str] = None,
+  ):
+    super().__init__()
+    self.prev = load_model(prev_network_path, False)
+    for p in self.prev.parameters():
+      p.requires_grad = False
+
+    self.layer = torch.nn.Conv2d(in_ch, num_filters, kernel_size, stride, padding, bias=False)
+    if attention is None:
+      self.attention = nn.Identity()
+    elif attention.lower() == "sam":
+      self.attention = SAM()
+    elif attention.lower() == "cbam":
+      self.attention = CBAM(num_filters)
+    else:
+      print(f"{attention} is not implemented. Reverting to identity")
+      self.attention = nn.Identity()
+    self.reshape_norm = ReshapeNormalize()
+
+  def forward(self, x: torch.Tensor) -> torch.Tensor:
+    act = self.prev(x).view(x.shape[0], 32, 8, 8)
+    act = self.layer(act)
+    act = self.attention(act)
+    act = self.reshape_norm(act)
+    return act
 
 class SingleLayer(nn.Module):
   def __init__(
@@ -130,6 +166,8 @@ def create_model(
     model = ResNet18CTRL(in_ch, **kwargs)
   elif model_name.lower() == "smallnet":
     model = SingleLayer(in_ch, **kwargs)
+  elif model_name.lower() == "customnet":
+    model = CustomNet(in_ch=in_ch, **kwargs)
   elif model_name.lower() == "densenet121":
     model = models.get_model(model_name, weights=weights)
     if in_ch == 1:
@@ -168,7 +206,7 @@ def load_model(experiment_path: str,
 
 if __name__ == "__main__":
   x = torch.randn(1, 1, 28, 28)
-  model = create_model("smallnet")
+  model = create_model("customnet", in_ch=32, prev_network_path="../logs/smallnet_MNIST_CBAM_CHI/")
   model.eval()
   with torch.inference_mode():
     out = model(x)
