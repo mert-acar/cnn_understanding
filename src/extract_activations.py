@@ -68,14 +68,15 @@ if __name__ == "__main__":
 
   model_name = "smallnet"
   dataset = "MNIST"
-  iden = "SAM"
+  iden = "CBAM_CHI"
+  split = "test"
   exp = "_".join([model_name, dataset]) + (f"_{iden}" if iden != "" else "")
   experiment_path  = os.path.join("../logs", exp)
 
-  dataloader = get_dataloader(dataset, "test")
+  dataloader = get_dataloader(dataset, split)
   model = load_model(experiment_path)
 
-  hook_targets = HOOK_TARGETS[model_name]
+  hook_targets = HOOK_TARGETS[model_name][0:1]
   out_path = os.path.join(experiment_path, "activations")
   os.makedirs(out_path, exist_ok=True)
 
@@ -85,4 +86,4 @@ if __name__ == "__main__":
   for key in hooked_activations:
     hooked_activations[key] = torch.cat(hooked_activations[key], 0).cpu().numpy()
     print(key, "→", hooked_activations[key].shape)
-    np.save(os.path.join(out_path, f"{key.replace('.', '_')}_act.npy"), hooked_activations[key])
+    np.save(os.path.join(out_path, f"{key.replace('.', '_')}_{split}_act.npy"), hooked_activations[key])

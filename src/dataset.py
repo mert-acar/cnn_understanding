@@ -1,19 +1,18 @@
 import torch
 import numpy as np
-from scipy.io import loadmat
-from torch.utils.data import DataLoader
 import torchvision.datasets as datasets
 import torchvision.transforms.v2 as transforms
+from torch.utils.data import DataLoader, Dataset
+
+from typing import Tuple
 
 
 def get_labels(dataset: str, split: str = "test") -> np.ndarray:
+  assert dataset.lower() in [
+    "mnist", "cifar10"
+  ], f"dataset name must be one of ['mnist', 'cifar10'], got {dataset}"
   assert split in ["train", "test"], f"split must be one of ['train', 'test'], got {split}"
-  if dataset.lower() == "mnist":
-    return loadmat(f"../data/mnist/{split}_labels.mat")["labels"][0]
-  elif dataset.lower() == "cifar10":
-    return loadmat(f"../data/cifar10/{split}_labels.mat")["labels"][0]
-  else:
-    raise FileNotFoundError
+  return np.load(f"../data/{dataset.lower()}/{split}_labels.npy")
 
 
 def get_transforms(dataset: str, split: str = "train") -> torch.nn.Module:
@@ -42,6 +41,20 @@ def get_transforms(dataset: str, split: str = "train") -> torch.nn.Module:
     ]
 
   return transforms.Compose(transform_list + augmentations)
+
+
+class CustomDataset(Dataset):
+  def __init__(self, data_path: str, split: str):
+    self.data = np.load(data_path)
+    self.labels = get_labels("MNIST", split)
+
+  def __len__(self) -> int:
+    return len(self.data)
+
+  def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int]:
+    x = torch.from_numpy(self.data[idx])
+    y = self.labels[idx]
+    return x, y
 
 
 def get_dataloader(

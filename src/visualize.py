@@ -4,8 +4,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 
-from utils import closest_factors
 from typing import Dict, List
+from utils import closest_factors
 
 
 def plot_pca(act: np.ndarray, labels: np.ndarray, n_comp: int = 30):
@@ -67,22 +67,23 @@ def plot_performance_curves(metrics: Dict[str, Dict[str, List[float]]], output_p
 
 
 def vis(embedded: np.ndarray, clusters: np.ndarray, labels: np.ndarray):
-  _, axs = plt.subplots(1, 2, figsize=(15, 7), tight_layout=True)
-  colormap = mpl.colormaps['tab20']
+  fig = plt.figure(figsize=(14, 8))
   for j, lbls in enumerate([clusters, labels]):
-    ax = axs[j]
-    for i, c in enumerate(reversed(list(set(lbls)))):
-      idx = lbls == c
-      if c == -1:
-        lbl = "Noisy Samples"
-        color = 'gray'
-      else:
-        lbl = f"Cluster {c}"
-        color = colormap(i)
-      ax.scatter(embedded[idx, 0], embedded[idx, 1], color=color, label=lbl, alpha=0.3)
+    ax = fig.add_subplot(121 + j, projection='3d')
+    ax.scatter(
+      embedded[:, 0],
+      embedded[:, 1],
+      embedded[:, 2],
+      c=lbls,
+      cmap='viridis',
+      marker='o',
+      alpha=0.3
+    )
     ax.grid(True)
     ax.set_title(f"{'predicted' if j == 0 else 'label'} clusters")
-    ax.legend()
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
   plt.suptitle(f"Activations")
   plt.show()
 
@@ -147,3 +148,20 @@ def plot_scores(df, identifier, out_path):
   plt.savefig(os.path.join(out_path, f"best_{identifier}.png"), bbox_inches="tight")
   plt.clf()
   plt.close("all")
+
+
+if __name__ == "__main__":
+  from model import HOOK_TARGETS
+  from dataset import get_labels
+  from sklearn.manifold import TSNE
+
+  exp_dir = "../logs/smallnet_MNIST_CBAM/"
+  var = HOOK_TARGETS["smallnet"][-1]
+  labels = get_labels("MNIST", "test")
+  activations = np.load(os.path.join(exp_dir, "activations", f"{var}_act.npy"))
+  cluster_labels = np.load(os.path.join(exp_dir, "clusters", f"{var}_cluster_labels_svm.npy"))
+  # embedded = PCA(n_components=3).fit_transform(activations)
+  embedded = TSNE(n_components=3).fit_transform(activations)
+
+  # plot_pca(activations, labels, 30)
+  vis(embedded, cluster_labels, labels)

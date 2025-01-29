@@ -62,7 +62,6 @@ class ReshapeNormalize(nn.Module):
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     return F.normalize(x.view(x.size(0), -1))
 
-
 class SingleLayer(nn.Module):
   def __init__(
     self,
