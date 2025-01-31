@@ -9,6 +9,7 @@ from loss import MaximalCodingRateReduction
 
 from typing import Tuple
 
+
 def bcss(x: np.ndarray, pred_labels: np.ndarray) -> float:
   n_labels = len(set(pred_labels))
   extra_disp = 0.0
@@ -59,8 +60,14 @@ def svm(activations: np.ndarray, labels: np.ndarray, **kwargs) -> np.ndarray:
   return pred_labels
 
 
-def get_clustering_func(method: str, k: int = 10, **kwargs):
+def spectral(activations: np.ndarray, labels: np.ndarray, **kwargs) -> np.ndarray:
+  return cluster.SpectralClustering(**kwargs).fit_predict(activations)
+
+
+def get_clustering_func(method: str, **kwargs):
   if method == "svm":
     return partial(svm, **kwargs)
+  elif method == "spectral":
+    return partial(spectral, **kwargs)
   else:
     raise NotImplementedError(method)

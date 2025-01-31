@@ -1,21 +1,22 @@
 # Data
-dataset: mnist
+dataset: cifar10
 
 # Model
 model:
-  model_name: smallnet # resnet18ctrl
-  in_ch: 1
-  num_filters: 32
-  kernel_size: 7
-  stride: 3
-  padding: 1
+  model_name: customnet # resnet18ctrl
+  in_ch: 32
+  num_filters: 64
+  kernel_size: 3
+  stride: 1
+  padding: 0
+  prev_network_path: ../logs/smallnet_CIFAR10_SAM_CHI/
   attention: SAM
 
 # Training
-batch_size: 128
+batch_size: 32
 num_workers: 8
 num_epochs: 100
-learning_rate: 0.01
+learning_rate: 0.001
 weight_decay: 0.005
 measure_accuracy: false
 criterion_args:
@@ -35,4 +36,4 @@ scheduler_patience: 3
 
 early_stop: 6
 
-output_path: ../logs/smallnet_MNIST_SAM_CHI/
+output_path: ../logs/customnet_CIFAR10_SAM_CHI/

@@ -67,8 +67,8 @@ if __name__ == "__main__":
   from model import load_model, HOOK_TARGETS
 
   model_name = "smallnet"
-  dataset = "MNIST"
-  iden = "CBAM_CHI"
+  dataset = "CIFAR10"
+  iden = "CBAM"
   split = "test"
   exp = "_".join([model_name, dataset]) + (f"_{iden}" if iden != "" else "")
   experiment_path  = os.path.join("../logs", exp)
@@ -76,7 +76,7 @@ if __name__ == "__main__":
   dataloader = get_dataloader(dataset, split)
   model = load_model(experiment_path)
 
-  hook_targets = HOOK_TARGETS[model_name][0:1]
+  hook_targets = HOOK_TARGETS[model_name]
   out_path = os.path.join(experiment_path, "activations")
   os.makedirs(out_path, exist_ok=True)
 

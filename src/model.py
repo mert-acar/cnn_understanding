@@ -58,9 +58,20 @@ class CBAM(nn.Module):
   def forward(self, x):
     return self.sam(self.cam(x))
 
+class AnotherNet(nn.Module):
+  def __init__(self):
+    super().__init__()
+    self.first_layer = SingleLayer(in_ch=3, attention="CBAM")
+    self.second_layer = SingleLayer(32, 64, 3, 1, 0, "CBAM")
+
+  def forward(self, x):
+    x = self.first_layer(x).view(x.size(0), 32, 10, 10)
+    x = self.second_layer(x)
+    return x
 
 class ReshapeNormalize(nn.Module):
   def forward(self, x: torch.Tensor) -> torch.Tensor:
+    sh = x.shape
     return F.normalize(x.view(x.size(0), -1))
 
 class CustomNet(nn.Module):
@@ -92,7 +103,8 @@ class CustomNet(nn.Module):
     self.reshape_norm = ReshapeNormalize()
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
-    act = self.prev(x).view(x.shape[0], 32, 8, 8)
+    act = self.prev(x).view(x.shape[0], 32, 10, 10)
+    # act = self.prev(x).view(x.shape[0], 32, 8, 8)
     act = self.layer(act)
     act = self.attention(act)
     act = self.reshape_norm(act)
@@ -168,6 +180,8 @@ def create_model(
     model = SingleLayer(in_ch, **kwargs)
   elif model_name.lower() == "customnet":
     model = CustomNet(in_ch=in_ch, **kwargs)
+  elif model_name.lower() == "anothernet":
+    model = AnotherNet()
   elif model_name.lower() == "densenet121":
     model = models.get_model(model_name, weights=weights)
     if in_ch == 1:
@@ -205,8 +219,8 @@ def load_model(experiment_path: str,
 
 
 if __name__ == "__main__":
-  x = torch.randn(1, 1, 28, 28)
-  model = create_model("customnet", in_ch=32, prev_network_path="../logs/smallnet_MNIST_CBAM_CHI/")
+  x = torch.randn(1, 3, 32, 32)
+  model = create_model("anothernet")
   model.eval()
   with torch.inference_mode():
     out = model(x)

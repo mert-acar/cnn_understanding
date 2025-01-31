@@ -1,6 +1,5 @@
 import numpy as np
 from sklearn import metrics
-from torch import maximum
 
 from cluster import get_clustering_func, cluster_accuracy, bcss, wcss, maximal_coding_rate
 
@@ -11,8 +10,8 @@ if __name__ == "__main__":
   from yaml import dump, full_load
 
   model = "smallnet"
-  dataset = "MNIST"
-  iden = "CBAM_CHI"
+  dataset = "CIFAR10"
+  iden = "CBAM"
   exp = "_".join([model, dataset]) + (f"_{iden}" if iden != "" else "")
   exp_dir = os.path.join("../logs", exp)
   labels = get_labels(dataset, "test")
@@ -21,7 +20,7 @@ if __name__ == "__main__":
   var = vars[-1]
 
   print(f"Working on: {exp_dir} [{var}]\n----------")
-  activations = np.load(os.path.join(exp_dir, "activations", f"{var.replace('.', '_')}_act.npy"))
+  activations = np.load(os.path.join(exp_dir, "activations", f"{var.replace('.', '_')}_test_act.npy"))
   if activations.ndim != 2:
     activations = activations.reshape(activations.shape[0], -1)
 
@@ -39,7 +38,7 @@ if __name__ == "__main__":
     cluster_labels = func(activations, labels)
     np.save(cluster_label_path, cluster_labels)
 
-  ΔR, R, Rc = maximal_coding_rate(activations, labels)
+  dR, R, Rc = maximal_coding_rate(activations, labels)
   scores = {
     "Accuracy": cluster_accuracy(cluster_labels, labels) * 100,
     "Silhouette": metrics.silhouette_score(activations, cluster_labels),
@@ -49,7 +48,7 @@ if __name__ == "__main__":
     "NMI": metrics.normalized_mutual_info_score(labels, cluster_labels),
     "homogeneity": metrics.homogeneity_score(labels, cluster_labels),
     "completeness": metrics.completeness_score(labels, cluster_labels),
-    "ΔR": ΔR,
+    "ΔR": dR,
     "R": R,
     "Rc": Rc,
   }
