@@ -5,7 +5,6 @@ import torchvision.datasets as datasets
 import torchvision.transforms.v2 as transforms
 
 
-
 def get_labels(dataset: str, split: str = "test") -> np.ndarray:
   assert dataset.lower() in [
     "mnist", "cifar10"

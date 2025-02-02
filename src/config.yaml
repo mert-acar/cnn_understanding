@@ -3,36 +3,29 @@ dataset: cifar10
 
 # Model
 model:
-  model_name: customcnn
+  model_name: clustercnn
   in_ch: 3
   out_dim: 256
+  num_layers: 1
   attention: SAM
 
 # Training
-batch_size: 32
+batch_size: 128
 num_workers: 8
-num_epochs: 100
+num_epochs: 200
 learning_rate: 0.001
 weight_decay: 0.005
-measure_accuracy: false
-criterion_args:
-  # cross_entropy_loss: {weight: 1.0}
-  # cluster_inducing_loss: {weight: 0.5}
-  calinski_harabasz_index: {weight: 1.0}
-  # completeness_loss: {weight: 1.0}
-  # homogeneity_loss: {weight: 1.0}
-  # homogeneity_completeness_loss: {weight: 1.0}
-  # maximal_coding_rate_reduction: {
-  #   weight: 1.0,
-  #   args: {
-  #     gam1: 20,
-  #     gam2: 15,
-  #     eps: 0.5,
-  #   }
-  # }
-scheduler_factor: 0.1
-scheduler_patience: 3
+metrics:
+  - accuracy
+  - completeness_score
+  - homogeneity_score
 
-early_stop: 6
+criterion_args:
+  completeness_loss: {weight: 0.5}
+  homogeneity_loss: {weight: 0.5}
+
+scheduler_factor: 0.1
+scheduler_patience: 4
+early_stop: 8
 
 output_path: ../logs/customnet_CIFAR10_SAM_CHI/

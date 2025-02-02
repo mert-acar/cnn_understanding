@@ -52,18 +52,46 @@ def plot_pca(act: np.ndarray, labels: np.ndarray, n_comp: int = 30):
 
 
 def plot_performance_curves(metrics: Dict[str, Dict[str, List[float]]], output_path: str):
-  fig, axs = plt.subplots(1, len(metrics), tight_layout=True, figsize=(10, 5), squeeze=False)
-  axs = axs[0]
-  epochs = list(range(1, len(metrics["loss"]["train"]) + 1))
-  for i, (metric, arr) in enumerate(metrics.items()):
-    for phase, val in arr.items():
-      axs[i].plot(epochs, val, label=phase)
-    axs[i].set_xlabel("Epochs")
-    axs[i].set_ylabel(metric)
-    axs[i].legend()
-    axs[i].grid(True)
-  fig.suptitle("Model Performance Across Epochs")
-  plt.savefig(os.path.join(output_path, "performance_curves.png"), bbox_inches="tight")
+    # Calculate number of rows and columns for subplots
+    n_metrics = len(metrics)
+    n_rows, n_cols = closest_factors(n_metrics)
+    
+    # Create figure with subplots
+    fig, axs = plt.subplots(n_rows, n_cols, figsize=(5*n_cols, 4*n_rows), squeeze=False)
+    epochs = list(range(1, len(next(iter(metrics.values()))["train"]) + 1))
+    
+    # Plot each metric
+    for idx, (metric_name, phases) in enumerate(metrics.items()):
+        row = idx // n_cols
+        col = idx % n_cols
+        
+        for phase, values in phases.items():
+            axs[row, col].plot(epochs, values, label=phase, 
+                             marker='o' if phase == 'test' else None,
+                             markersize=2)
+            
+        axs[row, col].set_xlabel("Epochs")
+        axs[row, col].set_ylabel(metric_name.replace('_', ' ').title())
+        axs[row, col].legend()
+        axs[row, col].grid(True)
+        
+        # Set title for each subplot
+        axs[row, col].set_title(f"{metric_name.replace('_', ' ').title()} vs Epochs")
+    
+    # Remove empty subplots if any
+    for idx in range(len(metrics), n_rows * n_cols):
+        row = idx // n_cols
+        col = idx % n_cols
+        fig.delaxes(axs[row, col])
+    
+    # Add main title and adjust layout
+    fig.suptitle("Training Metrics Across Epochs", y=1.02, fontsize=16)
+    plt.tight_layout()
+    
+    # Save the figure
+    save_path = os.path.join(output_path, "performance_curves.png")
+    plt.savefig(save_path, bbox_inches="tight", dpi=300)
+    plt.close()
 
 
 def vis(embedded: np.ndarray, clusters: np.ndarray, labels: np.ndarray):

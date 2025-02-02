@@ -10,6 +10,7 @@ from models import create_model
 from dataset import get_dataloader
 from utils import get_device, create_dir
 from visualize import plot_performance_curves
+from metrics import MetricCalculator
 
 
 def main(config_path: str):
@@ -43,11 +44,15 @@ def main(config_path: str):
   best_epoch = -1
   phases = ["test", "train"]
 
-  metric_list = ["loss"]
-  if config["measure_accuracy"]:
-    metric_list.append("accuracy")
-  metrics = {metric.lower(): {phase: [] for phase in phases} for metric in metric_list}
-  best_metrics = {metric.lower(): 0 for metric in metric_list}
+  # Initialize metrics tracking
+  metrics = {}
+  metric_names = config["metrics"].copy()
+  for metric_name in metric_names:
+    metrics[metric_name] = {phase: [] for phase in phases}
+  
+  metric_calculator = MetricCalculator(metric_names)
+  metrics["loss"] = {phase: [] for phase in phases}
+  best_metrics = {metric: float('inf') if metric == "loss" else 0 for metric in metrics.keys()}
   for epoch in range(config["num_epochs"]):
     print("-" * 20)
     print(f"Epoch {epoch + 1} / {config['num_epochs']}")
@@ -56,13 +61,15 @@ def main(config_path: str):
         model.train()
       else:
         model.eval()
-      running_metrics = {metric.lower(): 0 for metric in metric_list}
+      running_metrics = {metric: 0.0 for metric in metrics.keys()}
+      
       with torch.set_grad_enabled(phase == "train"):
         for data, target in tqdm(dataloaders[phase], total=len(dataloaders[phase]), ncols=94):
           data, target = data.to(device), target.to(device)
           optimizer.zero_grad()
           output = model(data)
 
+          # Calculate loss
           loss = criterion(output, target)
           running_metrics["loss"] += loss.item()
 
@@ -70,22 +77,25 @@ def main(config_path: str):
             loss.backward()
             optimizer.step()
 
-          if config["measure_accuracy"]:
-            pred = torch.nn.functional.log_softmax(output, dim=1)
-            acc = pred.argmax(1).eq(target).sum().item() / output.shape[0]
-            running_metrics["accuracy"] += acc
+          # Calculate all metrics at once
+          batch_metrics = metric_calculator.calculate_metrics(output, target)
+          for metric_name, value in batch_metrics.items():
+            running_metrics[metric_name] += value
 
-      for key, score in running_metrics.items():
-        score /= len(dataloaders[phase])
-        print(f"{key}: {score:.3f}", end=" | ")
-        metrics[key][phase].append(score)
+      # Average metrics over epoch
+      num_batches = len(dataloaders[phase])
+      for metric_name, value in running_metrics.items():
+        avg_value = value / num_batches
+        print(f"{metric_name}: {avg_value:.3f}", end=" | ")
+        metrics[metric_name][phase].append(avg_value)
       print()
 
       if phase == "test":
         scheduler.step(running_metrics["loss"])
+        # Update best metrics and save model if loss improved
         if running_metrics["loss"] < best_metrics["loss"]:
-          for key, score in running_metrics.items():
-            best_metrics[key] = score
+          for metric_name, value in running_metrics.items():
+            best_metrics[metric_name] = value / num_batches
           best_epoch = epoch
           print(f"+ Saving the model to {ckpt_path}...")
           torch.save(model.state_dict(), ckpt_path)
@@ -105,7 +115,7 @@ def main(config_path: str):
 
   with open(os.path.join(config["output_path"], "ExperimentSummary.yaml"), "r") as f:
     config = full_load(f)
-  config.update(best_metrics)
+  config.update({"best_" + k: v for k, v in best_metrics.items()})
   with open(os.path.join(config["output_path"], "ExperimentSummary.yaml"), "w") as f:
     dump(config, f)
 
