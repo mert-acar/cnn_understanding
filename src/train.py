@@ -34,9 +34,7 @@ def main(config_path: str):
   optimizer = torch.optim.AdamW(
     model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
   )
-  scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, factor=config["scheduler_factor"], patience=config["scheduler_patience"]
-  )
+  scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, **config["scheduler_args"])
 
   criterion = CompositeLoss(config["criterion_args"])
 
@@ -49,7 +47,7 @@ def main(config_path: str):
   metric_names = config["metrics"].copy()
   for metric_name in metric_names:
     metrics[metric_name] = {phase: [] for phase in phases}
-  
+
   metric_calculator = MetricCalculator(metric_names)
   metrics["loss"] = {phase: [] for phase in phases}
   best_metrics = {metric: float('inf') if metric == "loss" else 0 for metric in metrics.keys()}
@@ -62,7 +60,7 @@ def main(config_path: str):
       else:
         model.eval()
       running_metrics = {metric: 0.0 for metric in metrics.keys()}
-      
+
       with torch.set_grad_enabled(phase == "train"):
         for data, target in tqdm(dataloaders[phase], total=len(dataloaders[phase]), ncols=94):
           data, target = data.to(device), target.to(device)
@@ -85,9 +83,9 @@ def main(config_path: str):
       # Average metrics over epoch
       num_batches = len(dataloaders[phase])
       for metric_name, value in running_metrics.items():
-        avg_value = value / num_batches
-        print(f"{metric_name}: {avg_value:.3f}", end=" | ")
-        metrics[metric_name][phase].append(avg_value)
+        running_metrics[metric_name] = value / num_batches
+        print(f"{metric_name}: {running_metrics[metric_name]:.3f}", end=" | ")
+        metrics[metric_name][phase].append(running_metrics[metric_name])
       print()
 
       if phase == "test":
@@ -95,7 +93,7 @@ def main(config_path: str):
         # Update best metrics and save model if loss improved
         if running_metrics["loss"] < best_metrics["loss"]:
           for metric_name, value in running_metrics.items():
-            best_metrics[metric_name] = value / num_batches
+            best_metrics[metric_name] = value
           best_epoch = epoch
           print(f"+ Saving the model to {ckpt_path}...")
           torch.save(model.state_dict(), ckpt_path)

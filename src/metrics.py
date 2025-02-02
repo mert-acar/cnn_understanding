@@ -47,6 +47,8 @@ class MetricCalculator:
     mean = self.outputs_np.mean(0)
     for k in range(n_labels):
       cluster_k = self.outputs_np[self.targets_np == k]
+      if len(cluster_k) == 0:
+        continue
       mean_k = cluster_k.mean(0)
       extra_disp += len(cluster_k) * ((mean_k - mean)**2).sum()
     return float(extra_disp)
@@ -56,6 +58,8 @@ class MetricCalculator:
     intra_disp = 0.0
     for k in range(n_labels):
       cluster_k = self.outputs_np[self.targets_np == k]
+      if len(cluster_k) == 0:
+        continue
       mean_k = cluster_k.mean(0)
       intra_disp += ((cluster_k - mean_k)**2).sum()
     return float(intra_disp)
