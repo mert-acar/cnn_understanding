@@ -6,7 +6,7 @@ from shutil import copyfile
 from yaml import full_load, dump
 
 from loss import CompositeLoss
-from model import create_model
+from models import create_model
 from dataset import get_dataloader
 from utils import get_device, create_dir
 from visualize import plot_performance_curves

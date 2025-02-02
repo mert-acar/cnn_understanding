@@ -70,15 +70,7 @@ def vis(embedded: np.ndarray, clusters: np.ndarray, labels: np.ndarray):
   fig = plt.figure(figsize=(14, 8))
   for j, lbls in enumerate([clusters, labels]):
     ax = fig.add_subplot(121 + j, projection='3d')
-    ax.scatter(
-      embedded[:, 0],
-      embedded[:, 1],
-      embedded[:, 2],
-      c=lbls,
-      cmap='viridis',
-      marker='o',
-      alpha=0.3
-    )
+    ax.scatter(embedded[:, 0], embedded[:, 1], embedded[:, 2], c=lbls, cmap='viridis', marker='o', alpha=0.3)
     ax.grid(True)
     ax.set_title(f"{'predicted' if j == 0 else 'label'} clusters")
     ax.set_xlabel('X')
@@ -151,8 +143,8 @@ def plot_scores(df, identifier, out_path):
 
 
 if __name__ == "__main__":
-  from model import HOOK_TARGETS
   from dataset import get_labels
+  from models import HOOK_TARGETS
   from sklearn.manifold import TSNE
 
   exp_dir = "../logs/smallnet_MNIST_CBAM/"

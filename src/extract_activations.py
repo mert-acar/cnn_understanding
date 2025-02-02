@@ -64,11 +64,11 @@ if __name__ == "__main__":
   import os
   import numpy as np
   from dataset import get_dataloader
-  from model import load_model, HOOK_TARGETS
+  from models import load_model, HOOK_TARGETS
 
-  model_name = "smallnet"
+  model_name = "customnet"
   dataset = "CIFAR10"
-  iden = "CBAM"
+  iden = "CBAM_MCR"
   split = "test"
   exp = "_".join([model_name, dataset]) + (f"_{iden}" if iden != "" else "")
   experiment_path  = os.path.join("../logs", exp)

@@ -3,13 +3,9 @@ dataset: cifar10
 
 # Model
 model:
-  model_name: customnet # resnet18ctrl
-  in_ch: 32
-  num_filters: 64
-  kernel_size: 3
-  stride: 1
-  padding: 0
-  prev_network_path: ../logs/smallnet_CIFAR10_SAM_CHI/
+  model_name: customcnn
+  in_ch: 3
+  out_dim: 256
   attention: SAM
 
 # Training

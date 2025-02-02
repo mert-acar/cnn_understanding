@@ -5,13 +5,13 @@ from cluster import get_clustering_func, cluster_accuracy, bcss, wcss, maximal_c
 
 if __name__ == "__main__":
   import os
-  from model import HOOK_TARGETS
+  from models import HOOK_TARGETS
   from dataset import get_labels
   from yaml import dump, full_load
 
-  model = "smallnet"
+  model = "customnet"
   dataset = "CIFAR10"
-  iden = "CBAM"
+  iden = "CBAM_MCR"
   exp = "_".join([model, dataset]) + (f"_{iden}" if iden != "" else "")
   exp_dir = os.path.join("../logs", exp)
   labels = get_labels(dataset, "test")
