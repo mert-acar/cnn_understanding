@@ -19,6 +19,9 @@ criterion_args:
   # cross_entropy_loss: {weight: 1.0}
   # cluster_inducing_loss: {weight: 0.5}
   calinski_harabasz_index: {weight: 1.0}
+  # completeness_loss: {weight: 1.0}
+  # homogeneity_loss: {weight: 1.0}
+  # homogeneity_completeness_loss: {weight: 1.0}
   # maximal_coding_rate_reduction: {
   #   weight: 1.0,
   #   args: {

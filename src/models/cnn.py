@@ -59,7 +59,8 @@ class CustomCNN(nn.Module):
       prev = prev * 2
       out = out - 2
     layers.append(nn.Flatten())
-    layers.append(nn.Linear(prev * out * out, out_dim, bias=False))
+    if out_dim != 0:
+      layers.append(nn.Linear(prev * out * out, out_dim, bias=False))
     layers.append(Normalize())
     self.layers = nn.Sequential(*layers)
 
@@ -93,6 +94,7 @@ class ClusteringCNN(nn.Module):
     start_ch: int = 32,
     batch_norm: bool = False
   ):
+    super().__init__()
     self.feature_extractor = CustomCNN(num_layers, in_ch, out_dim, attention, relu, start_ch, batch_norm)
     self.cluster_head = ClusterHead(num_clusters, out_dim, temperature)
 

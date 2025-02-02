@@ -87,7 +87,6 @@ class MaximalCodingRateReduction(torch.nn.Module):
     return total_loss_empi
 
 
-
 @loss_registry.register("calinski_harabasz_index")
 class CalinskiHarabaszLoss(torch.nn.Module):
   def forward(self, embeddings: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
@@ -106,17 +105,67 @@ class CalinskiHarabaszLoss(torch.nn.Module):
     cluster_means = sum_per_cluster / counts
     overall_mean = embeddings.mean(dim=0, keepdim=True)
 
-    # Between-cluster variance (B)
+    # Between-cluster variance (BCSS)
     diff_b = cluster_means - overall_mean
-    B = (diff_b.pow(2).sum(dim=1) * counts.squeeze()).sum()
+    bcss = (diff_b.pow(2).sum(dim=1) * counts.squeeze()).sum()
 
-    # Within-cluster variance (W)
+    # Within-cluster variance (WCSS)
     cluster_means_expanded = cluster_means[inverse_indices]
     diff_w = embeddings - cluster_means_expanded
-    W = diff_w.pow(2).sum(dim=1).sum()
+    wcss = diff_w.pow(2).sum(dim=1).sum()
 
-    ch_score = (B * (n - k)) / ((k - 1) * W + 1e-10)
+    ch_score = (bcss * (n - k)) / ((k - 1) * wcss + 1e-10)
     return -ch_score
+
+
+@loss_registry.register("homogeneity_loss")
+class HomogeneityLoss(torch.nn.Module):
+  def __init__(self, num_classes: int = 10):
+    super().__init__()
+    self.num_classes = num_classes
+
+  def forward(self, pred_labels: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    y_onehot = F.one_hot(labels, num_classes=self.num_classes).float().to(pred_labels.device)
+    sum_q = pred_labels.sum(dim=0)
+    p_y_given_c = torch.mm(pred_labels.t(), y_onehot) / (sum_q.unsqueeze(1) + 1e-10)
+    entropy_y_given_c = -(p_y_given_c * torch.log(p_y_given_c + 1e-10)).sum(dim=1)
+    h_y_given_c = (pred_labels.mean(dim=0) * entropy_y_given_c).sum()
+    p_y = y_onehot.mean(dim=0)
+    h_y = -(p_y * torch.log(p_y + 1e-10)).sum()
+    homogeneity_loss = h_y_given_c / (h_y + 1e-10)
+    return homogeneity_loss
+
+
+@loss_registry.register("completeness_loss")
+class CompletenessLoss(torch.nn.Module):
+  def __init__(self, num_classes: int = 10):
+    super().__init__()
+    self.num_classes = num_classes
+
+  def forward(self, pred_labels: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    y_onehot = F.one_hot(labels, num_classes=self.num_classes).float().to(pred_labels.device)
+    sum_y = y_onehot.sum(dim=0)
+    p_c_given_y = torch.mm(y_onehot.t(), pred_labels) / (sum_y.unsqueeze(1) + 1e-10)
+    entropy_c_given_y = -(p_c_given_y * torch.log(p_c_given_y + 1e-10)).sum(dim=1)
+    h_c_given_y = (y_onehot.mean(dim=0) * entropy_c_given_y).sum()
+    p_c = pred_labels.mean(dim=0)
+    h_c = -(p_c * torch.log(p_c + 1e-10)).sum()
+    completeness_loss = h_c_given_y / (h_c + 1e-10)
+    return completeness_loss
+
+
+@loss_registry.register("homogeneity_completeness_loss")
+class HomogeneityOverCompleteness(torch.nn.Module):
+  def __init__(self, num_classes: int = 10):
+    super().__init__()
+    self.num_classes = num_classes
+    self.completeness_loss = CompletenessLoss(num_classes)
+    self.homogeneity_loss = HomogeneityLoss(num_classes)
+
+  def forward(self, pred_labels: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    cl = self.completeness_loss(pred_labels, labels)
+    hl = self.homogeneity_loss(pred_labels, labels)
+    return cl / (hl + 1e-10)
 
 
 class CompositeLoss(torch.nn.Module):
