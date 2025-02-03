@@ -6,13 +6,14 @@ from torchvision import models
 from typing import Union, Dict, Any, Tuple
 
 from .resnet import ResNet18CTRL
-from .cnn import ClusteringCNN, CustomCNN
+from .cnn import ClassifyingCNN, ClusteringCNN, CustomCNN
 
 HOOK_TARGETS = {
   "densenet121": ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)],
   "resnet18": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)],
   "customcnn": ["layers"],
   "clustercnn": ["feature_extractor", "cluster_head"],
+  "classificationcnn": ["feature_extractor", "classification_head "],
   "resnet18ctrl": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)] + ["reshape_norm"],
   "efficientnetb2": [f"features.{i}" for i in range(1, 8)],
   "efficientnetb3": [f"features.{i}" for i in range(1, 8)]
@@ -33,6 +34,8 @@ def create_model(
     model = CustomCNN(in_ch=in_ch, **kwargs)
   elif model_name.lower() == "clustercnn":
     model = ClusteringCNN(in_ch=in_ch, **kwargs)
+  elif model_name.lower() == "classificationcnn":
+    model = ClassifyingCNN(in_ch=in_ch, **kwargs)
   elif model_name.lower() == "densenet121":
     model = models.get_model(model_name, weights=weights)
     if in_ch == 1:

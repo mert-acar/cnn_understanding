@@ -68,6 +68,14 @@ class CustomCNN(nn.Module):
     return self.layers(x)
 
 
+class ClassificationHead(nn.Module):
+  def __init__(self, num_classes: int = 10, latent_dim: int = 256):
+    super().__init__()
+    self.fc = nn.Linear(latent_dim, num_classes)
+
+  def forward(self, x: torch.Tensor) -> torch.Tensor:
+    return F.softmax(self.fc(x), dim=1)
+
 class ClusterHead(nn.Module):
   def __init__(self, num_clusters: int = 10, latent_dim: int = 256, temperature: float = 1.0):
     super().__init__()
@@ -80,6 +88,25 @@ class ClusterHead(nn.Module):
     q = F.softmax(similarities / self.temperature, dim=1)  # Soft cluster assignments
     return q
 
+
+class ClassifyingCNN(nn.Module):
+  def __init__(
+    self,
+    num_classes: int = 10,
+    num_layers: int = 1,
+    in_ch: int = 3,
+    out_dim: int = 256,
+    attention: str = "none",
+    relu: bool = False,
+    start_ch: int = 32,
+    batch_norm: bool = False
+  ):
+    super().__init__()
+    self.feature_extractor = CustomCNN(num_layers, in_ch, out_dim, attention, relu, start_ch, batch_norm)
+    self.classification_head = ClassificationHead(num_classes, out_dim)
+
+  def forward(self, x: torch.Tensor) -> torch.Tensor:
+    return self.classification_head(self.feature_extractor(x))
 
 class ClusteringCNN(nn.Module):
   def __init__(

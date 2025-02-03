@@ -8,6 +8,7 @@ from loss import MaximalCodingRateReduction
 
 class MetricCalculator:
   def __init__(self, metric_names: List[str]):
+    self.mcr = MaximalCodingRateReduction(1, 1, 0.05, 10)
     self.metric_names = metric_names
 
   def _register_data(
@@ -65,7 +66,6 @@ class MetricCalculator:
     return float(intra_disp)
 
   def maximal_coding_rate(self) -> float:
-    criterion = MaximalCodingRateReduction()
     delta_R = 0
     step = 128
     x = torch.from_numpy(self.outputs_np)
@@ -73,9 +73,9 @@ class MetricCalculator:
     n = np.ceil(len(x) / step)
     for i in range(0, int(n)):
       w = x[i * step:(i + 1) * step].T
-      pi = criterion.label_to_membership(y[i * step:(i + 1) * step])
-      r = criterion.compute_discrimn_loss_empirical(w) / n
-      rc = criterion.compute_compress_loss_empirical(w, pi) / n
+      pi = self.mcr.label_to_membership(y[i * step:(i + 1) * step])
+      r = self.mcr.compute_discrimn_loss_empirical(w) / n
+      rc = self.mcr.compute_compress_loss_empirical(w, pi) / n
       delta_R += r - rc
     return delta_R
 

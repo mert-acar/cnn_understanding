@@ -3,22 +3,23 @@ dataset: cifar10
 
 # Model
 model:
-  model_name: clustercnn
+  model_name: classificationcnn
   in_ch: 3
   out_dim: 256
   num_layers: 1
   attention: SAM
 
 # Training
-batch_size: 128
+batch_size: 32
 num_workers: 8
 num_epochs: 200
 learning_rate: 0.001
 weight_decay: 0.005
 metrics:
   - accuracy
-  - completeness_score
   - homogeneity_score
+  - completeness_score
+  - maximal_coding_rate
 
 criterion_args:
   completeness_loss: {weight: 0.5}
@@ -30,4 +31,4 @@ scheduler_args:
 
 early_stop: 8
 
-output_path: ../logs/customnet_CIFAR10_SAM_CHI/
+output_path: ../logs/classificationcnn_N1_CIFAR10_SAM_CL_HL/

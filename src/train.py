@@ -8,9 +8,9 @@ from yaml import full_load, dump
 from loss import CompositeLoss
 from models import create_model
 from dataset import get_dataloader
+from metrics import MetricCalculator
 from utils import get_device, create_dir
 from visualize import plot_performance_curves
-from metrics import MetricCalculator
 
 
 def main(config_path: str):
