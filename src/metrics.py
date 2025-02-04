@@ -40,7 +40,7 @@ class MetricCalculator:
     return float(metrics.normalized_mutual_info_score(self.targets_np, self._get_cluster_assignments()))
 
   def calinski_harabasz_index(self) -> float:
-    return metrics.calinski_harabasz_score(self.outputs_np, self.targets_np)
+    return float(metrics.calinski_harabasz_score(self.outputs_np, self.targets_np))
 
   def bcss(self) -> float:
     n_labels = len(set(self.targets_np))
@@ -86,6 +86,6 @@ class MetricCalculator:
       metric_fn = getattr(self, metric_name, None)
       if metric_fn is None:
         raise ValueError(f"Metric {metric_name} not implemented")
-      results[metric_name] = metric_fn()
+      results[metric_name] = float(metric_fn())
 
     return results

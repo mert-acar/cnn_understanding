@@ -28,9 +28,9 @@ def build_layer(
   if relu:
     layer.append(nn.ReLU())
 
-  if attention == "sam":
+  if attention.lower() == "sam":
     layer.append(SAM())
-  elif attention == "cbam":
+  elif attention.lower() == "cbam":
     layer.append(CBAM(out_ch))
   else:
     layer.append(nn.Identity())
