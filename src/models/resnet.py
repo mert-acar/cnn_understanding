@@ -31,9 +31,7 @@ class ClusteringResNet18(nn.Module):
     out = self.avgpool(out)
     out = self.reshape_norm(out)
     centers = F.normalize(self.cluster_centroids)
-    similarities = torch.mm(out, centers.t())
-    q = F.softmax(similarities / self.temperature, dim=1)
-    return q
+    return torch.mm(out, centers.t())
 
 
 class ResNet18CTRL(nn.Module):

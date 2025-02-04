@@ -74,7 +74,7 @@ class ClassificationHead(nn.Module):
     self.fc = nn.Linear(latent_dim, num_classes)
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
-    return F.softmax(self.fc(x), dim=1)
+    return self.fc(x)
 
 
 class ClusterHead(nn.Module):
@@ -86,8 +86,7 @@ class ClusterHead(nn.Module):
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     centers = F.normalize(self.cluster_centroids)
     similarities = torch.mm(x, centers.t())  # cosine similarities
-    q = F.softmax(similarities / self.temperature, dim=1)  # Soft cluster assignments
-    return q
+    return similarities
 
 
 class ClassifyingCNN(nn.Module):

@@ -124,8 +124,9 @@ class HomogeneityLoss(torch.nn.Module):
     super().__init__()
     self.num_classes = num_classes
 
-  def forward(self, pred_probs: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+  def forward(self, pred_logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
     n_samples = len(labels)
+    pred_probs = F.softmax(pred_logits, dim=1)
 
     # Calculate class contingency matrix
     classes = torch.arange(self.num_classes, device=labels.device)
@@ -158,8 +159,8 @@ class HomogeneityLoss(torch.nn.Module):
     if class_entropy < eps:
       return torch.tensor(0.0, device=labels.device)
 
-    homogeneity = cond_entropy / class_entropy
-    return homogeneity
+    # Return the conditional entropy ratio directly as the loss
+    return cond_entropy / class_entropy
 
 
 @loss_registry.register("completeness_loss")
@@ -168,8 +169,9 @@ class CompletenessLoss(torch.nn.Module):
     super().__init__()
     self.num_classes = num_classes
 
-  def forward(self, pred_probs: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+  def forward(self, pred_logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
     n_samples = len(labels)
+    pred_probs = F.softmax(pred_logits, dim=1)
 
     # Calculate class contingency matrix
     classes = torch.arange(self.num_classes, device=labels.device)
@@ -202,8 +204,8 @@ class CompletenessLoss(torch.nn.Module):
     if cluster_entropy < eps:
       return torch.tensor(0.0, device=labels.device)
 
-    completeness = cond_entropy / cluster_entropy
-    return completeness
+    # Return the conditional entropy ratio directly as the loss
+    return cond_entropy / cluster_entropy
 
 
 @loss_registry.register("homogeneity_completeness_loss")

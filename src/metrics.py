@@ -6,6 +6,10 @@ from typing import Dict, Union, List
 from loss import MaximalCodingRateReduction
 
 
+def softmax(x: np.ndarray) -> np.ndarray:
+  return np.exp(x) / sum(np.exp(x))
+
+
 class MetricCalculator:
   def __init__(self, metric_names: List[str]):
     self.mcr = MaximalCodingRateReduction(1, 1, 0.05, 10)
@@ -25,7 +29,11 @@ class MetricCalculator:
       self.targets_np = targets
 
   def _get_cluster_assignments(self) -> np.ndarray:
-    return np.argmax(self.outputs_np, axis=1)
+    if self.outputs_np.sum(1).sum() != len(self.outputs_np):
+      probs = softmax(self.outputs_np)
+    else:
+      probs = self.outputs_np
+    return np.argmax(probs, axis=1)
 
   def accuracy(self) -> float:
     return (self._get_cluster_assignments() == self.targets_np).mean()
