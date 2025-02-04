@@ -22,8 +22,8 @@ metrics:
   - maximal_coding_rate
 
 criterion_args:
-  completeness_loss: {weight: 0.5}
-  homogeneity_loss: {weight: 0.5}
+  completeness_loss: {weight: 1.0}
+  # homogeneity_loss: {weight: 0.5}
 
 scheduler_args:
   factor: 0.1

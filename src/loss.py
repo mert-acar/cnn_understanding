@@ -124,16 +124,42 @@ class HomogeneityLoss(torch.nn.Module):
     super().__init__()
     self.num_classes = num_classes
 
-  def forward(self, pred_labels: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-    y_onehot = F.one_hot(labels, num_classes=self.num_classes).float().to(pred_labels.device)
-    sum_q = pred_labels.sum(dim=0)
-    p_y_given_c = torch.mm(pred_labels.t(), y_onehot) / (sum_q.unsqueeze(1) + 1e-10)
-    entropy_y_given_c = -(p_y_given_c * torch.log(p_y_given_c + 1e-10)).sum(dim=1)
-    h_y_given_c = (pred_labels.mean(dim=0) * entropy_y_given_c).sum()
-    p_y = y_onehot.mean(dim=0)
-    h_y = -(p_y * torch.log(p_y + 1e-10)).sum()
-    homogeneity_loss = h_y_given_c / (h_y + 1e-10)
-    return homogeneity_loss
+  def forward(self, pred_probs: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    n_samples = len(labels)
+
+    # Calculate class contingency matrix
+    classes = torch.arange(self.num_classes, device=labels.device)
+    y_true_bin = (labels.unsqueeze(1) == classes).float()  # [batch_size, num_classes]
+
+    # Calculate joint distribution P(K,C)
+    joint = torch.matmul(pred_probs.T, y_true_bin) / n_samples  # [num_clusters, num_classes]
+
+    # Calculate marginal distributions
+    pred_marginal = joint.sum(dim=1).unsqueeze(1)  # P(K)
+    true_marginal = joint.sum(dim=0).unsqueeze(0)  # P(C)
+
+    # Calculate entropies
+    eps = 1e-15  # small constant to avoid log(0)
+
+    # H(C|K) - conditional entropy
+    joint_diag = torch.where(joint > eps, joint, torch.tensor(eps, device=joint.device))
+    pred_marg_diag = torch.where(
+      pred_marginal > eps, pred_marginal, torch.tensor(eps, device=pred_marginal.device)
+    )
+    cond_entropy = -torch.sum(joint * (torch.log(joint_diag) - torch.log(pred_marg_diag)))
+
+    # H(C) - class entropy
+    true_marg_diag = torch.where(
+      true_marginal > eps, true_marginal, torch.tensor(eps, device=true_marginal.device)
+    )
+    class_entropy = -torch.sum(true_marginal * torch.log(true_marg_diag))
+
+    # If class_entropy is 0, homogeneity is 1 (perfect case)
+    if class_entropy < eps:
+      return torch.tensor(0.0, device=labels.device)
+
+    homogeneity = cond_entropy / class_entropy
+    return homogeneity
 
 
 @loss_registry.register("completeness_loss")
@@ -142,16 +168,42 @@ class CompletenessLoss(torch.nn.Module):
     super().__init__()
     self.num_classes = num_classes
 
-  def forward(self, pred_labels: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-    y_onehot = F.one_hot(labels, num_classes=self.num_classes).float().to(pred_labels.device)
-    sum_y = y_onehot.sum(dim=0)
-    p_c_given_y = torch.mm(y_onehot.t(), pred_labels) / (sum_y.unsqueeze(1) + 1e-10)
-    entropy_c_given_y = -(p_c_given_y * torch.log(p_c_given_y + 1e-10)).sum(dim=1)
-    h_c_given_y = (y_onehot.mean(dim=0) * entropy_c_given_y).sum()
-    p_c = pred_labels.mean(dim=0)
-    h_c = -(p_c * torch.log(p_c + 1e-10)).sum()
-    completeness_loss = h_c_given_y / (h_c + 1e-10)
-    return completeness_loss
+  def forward(self, pred_probs: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    n_samples = len(labels)
+
+    # Calculate class contingency matrix
+    classes = torch.arange(self.num_classes, device=labels.device)
+    y_true_bin = (labels.unsqueeze(1) == classes).float()  # [batch_size, num_classes]
+
+    # Calculate joint distribution P(K,C)
+    joint = torch.matmul(pred_probs.T, y_true_bin) / n_samples  # [num_clusters, num_classes]
+
+    # Calculate marginal distributions
+    pred_marginal = joint.sum(dim=1).unsqueeze(1)  # P(K)
+    true_marginal = joint.sum(dim=0).unsqueeze(0)  # P(C)
+
+    # Calculate entropies
+    eps = 1e-15  # small constant to avoid log(0)
+
+    # H(K|C) - conditional entropy of clusters given classes
+    joint_diag = torch.where(joint > eps, joint, torch.tensor(eps, device=joint.device))
+    true_marg_diag = torch.where(
+      true_marginal > eps, true_marginal, torch.tensor(eps, device=true_marginal.device)
+    )
+    cond_entropy = -torch.sum(joint * (torch.log(joint_diag) - torch.log(true_marg_diag)))
+
+    # H(K) - cluster entropy
+    pred_marg_diag = torch.where(
+      pred_marginal > eps, pred_marginal, torch.tensor(eps, device=pred_marginal.device)
+    )
+    cluster_entropy = -torch.sum(pred_marginal * torch.log(pred_marg_diag))
+
+    # If cluster_entropy is 0, completeness is 1 (perfect case)
+    if cluster_entropy < eps:
+      return torch.tensor(0.0, device=labels.device)
+
+    completeness = cond_entropy / cluster_entropy
+    return completeness
 
 
 @loss_registry.register("homogeneity_completeness_loss")

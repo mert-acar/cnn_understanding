@@ -76,6 +76,7 @@ class ClassificationHead(nn.Module):
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     return F.softmax(self.fc(x), dim=1)
 
+
 class ClusterHead(nn.Module):
   def __init__(self, num_clusters: int = 10, latent_dim: int = 256, temperature: float = 1.0):
     super().__init__()
@@ -107,6 +108,7 @@ class ClassifyingCNN(nn.Module):
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     return self.classification_head(self.feature_extractor(x))
+
 
 class ClusteringCNN(nn.Module):
   def __init__(
