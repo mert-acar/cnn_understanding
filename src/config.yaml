@@ -3,11 +3,13 @@ dataset: cifar10
 
 # Model
 model:
-  model_name: cluster_resnet18
+  model_name: clustercnn
   in_ch: 3
+  num_layers: 1
+  attention: SAM
 
 # Training
-batch_size: 32
+batch_size: 128
 num_workers: 8
 num_epochs: 200
 learning_rate: 0.001
@@ -16,11 +18,12 @@ metrics:
   - accuracy
   - homogeneity_score
   - completeness_score
-  - maximal_coding_rate
 
 criterion_args:
-  completeness_loss: {weight: 1.0}
-  # homogeneity_loss: {weight: 0.5}
+  completenesss_homogeneity_loss: 
+    weight: 1.0
+    lambda_h: 0.5
+    lambda_c: 0.5
 
 scheduler_args:
   factor: 0.1
@@ -28,4 +31,4 @@ scheduler_args:
 
 early_stop: 8
 
-output_path: ../logs/classificationcnn_N1_CIFAR10_SAM_CL_HL/
+output_path: ../logs/clustercnn_N1_CIFAR10_SAM_CL_HL/

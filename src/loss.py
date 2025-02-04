@@ -118,108 +118,47 @@ class CalinskiHarabaszLoss(torch.nn.Module):
     return -ch_score
 
 
-@loss_registry.register("homogeneity_loss")
-class HomogeneityLoss(torch.nn.Module):
-  def __init__(self, num_classes: int = 10):
+@loss_registry.register("completenesss_homogeneity_loss")
+class CompletenessHomogeneityLoss(torch.nn.Module):
+  def __init__(self, num_classes: int = 10, lambda_h: float = 1.0, lambda_c: float = 1.0):
     super().__init__()
     self.num_classes = num_classes
+    self.lambda_h = lambda_h
+    self.lambda_c = lambda_c
+    self.eps = 1e-10
+    self.alpha = 5e-2
 
-  def forward(self, pred_logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-    n_samples = len(labels)
-    pred_probs = F.softmax(pred_logits, dim=1)
+  def entropy(self, probs: torch.Tensor) -> torch.Tensor:
+    freq = probs.sum(0)
+    freq_s = freq.sum()
+    return -((freq / freq_s) * (torch.log(freq) - torch.log(freq_s))).sum()
 
-    # Calculate class contingency matrix
-    classes = torch.arange(self.num_classes, device=labels.device)
-    y_true_bin = (labels.unsqueeze(1) == classes).float()  # [batch_size, num_classes]
+  def get_soft_contingency_matrix(self, pred_probs: torch.Tensor, true_probs: torch.Tensor) -> torch.Tensor:
+    return torch.einsum('ij,ik->ijk', true_probs, pred_probs).sum(0)
 
-    # Calculate joint distribution P(K,C)
-    joint = torch.matmul(pred_probs.T, y_true_bin) / n_samples  # [num_clusters, num_classes]
+  def get_mutual_info(self, contingency: torch.Tensor) -> torch.Tensor:
+    c_sum = contingency.sum()
+    pi = torch.ravel(contingency.sum(1))
+    pj = torch.ravel(contingency.sum(0))
+    log_contingency_nm = torch.log(contingency).flatten()
+    contingency_nm = contingency.flatten() / c_sum
+    outer = torch.outer(pi, pj).flatten()
+    log_outer = -torch.log(outer) + torch.log(pi.sum()) + torch.log(pj.sum())
+    mi = contingency_nm * (log_contingency_nm - torch.log(c_sum)) + contingency_nm * log_outer
+    mi = torch.clamp(mi.sum(), min=0.0)
+    return mi
 
-    # Calculate marginal distributions
-    pred_marginal = joint.sum(dim=1).unsqueeze(1)  # P(K)
-    true_marginal = joint.sum(dim=0).unsqueeze(0)  # P(C)
-
-    # Calculate entropies
-    eps = 1e-15  # small constant to avoid log(0)
-
-    # H(C|K) - conditional entropy
-    joint_diag = torch.where(joint > eps, joint, torch.tensor(eps, device=joint.device))
-    pred_marg_diag = torch.where(
-      pred_marginal > eps, pred_marginal, torch.tensor(eps, device=pred_marginal.device)
-    )
-    cond_entropy = -torch.sum(joint * (torch.log(joint_diag) - torch.log(pred_marg_diag)))
-
-    # H(C) - class entropy
-    true_marg_diag = torch.where(
-      true_marginal > eps, true_marginal, torch.tensor(eps, device=true_marginal.device)
-    )
-    class_entropy = -torch.sum(true_marginal * torch.log(true_marg_diag))
-
-    # If class_entropy is 0, homogeneity is 1 (perfect case)
-    if class_entropy < eps:
-      return torch.tensor(0.0, device=labels.device)
-
-    # Return the conditional entropy ratio directly as the loss
-    return cond_entropy / class_entropy
-
-
-@loss_registry.register("completeness_loss")
-class CompletenessLoss(torch.nn.Module):
-  def __init__(self, num_classes: int = 10):
-    super().__init__()
-    self.num_classes = num_classes
-
-  def forward(self, pred_logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-    n_samples = len(labels)
-    pred_probs = F.softmax(pred_logits, dim=1)
-
-    # Calculate class contingency matrix
-    classes = torch.arange(self.num_classes, device=labels.device)
-    y_true_bin = (labels.unsqueeze(1) == classes).float()  # [batch_size, num_classes]
-
-    # Calculate joint distribution P(K,C)
-    joint = torch.matmul(pred_probs.T, y_true_bin) / n_samples  # [num_clusters, num_classes]
-
-    # Calculate marginal distributions
-    pred_marginal = joint.sum(dim=1).unsqueeze(1)  # P(K)
-    true_marginal = joint.sum(dim=0).unsqueeze(0)  # P(C)
-
-    # Calculate entropies
-    eps = 1e-15  # small constant to avoid log(0)
-
-    # H(K|C) - conditional entropy of clusters given classes
-    joint_diag = torch.where(joint > eps, joint, torch.tensor(eps, device=joint.device))
-    true_marg_diag = torch.where(
-      true_marginal > eps, true_marginal, torch.tensor(eps, device=true_marginal.device)
-    )
-    cond_entropy = -torch.sum(joint * (torch.log(joint_diag) - torch.log(true_marg_diag)))
-
-    # H(K) - cluster entropy
-    pred_marg_diag = torch.where(
-      pred_marginal > eps, pred_marginal, torch.tensor(eps, device=pred_marginal.device)
-    )
-    cluster_entropy = -torch.sum(pred_marginal * torch.log(pred_marg_diag))
-
-    # If cluster_entropy is 0, completeness is 1 (perfect case)
-    if cluster_entropy < eps:
-      return torch.tensor(0.0, device=labels.device)
-
-    # Return the conditional entropy ratio directly as the loss
-    return cond_entropy / cluster_entropy
-
-
-@loss_registry.register("homogeneity_completeness_loss")
-class HomogeneityOverCompleteness(torch.nn.Module):
-  def __init__(self, num_classes: int = 10):
-    super().__init__()
-    self.num_classes = num_classes
-    self.completeness_loss = CompletenessLoss(num_classes)
-    self.homogeneity_loss = HomogeneityLoss(num_classes)
-
-  def forward(self, pred_labels: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-    cl = self.completeness_loss(pred_labels, labels)
-    hl = self.homogeneity_loss(pred_labels, labels)
-    return cl / (hl + 1e-10)
+  def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    pred_probs = F.softmax(logits / 0.05, dim=1)
+    true_probs = F.one_hot(targets, num_classes=self.num_classes).float()
+    entropy_C = self.entropy(true_probs)
+    entropy_K = self.entropy(pred_probs)
+    contingency_m = self.get_soft_contingency_matrix(pred_probs, true_probs)
+    mutual_info = self.get_mutual_info(contingency_m)
+    homogeneity = mutual_info / (entropy_C + self.eps)
+    completeness = mutual_info / (entropy_K + self.eps)
+    print(homogeneity, completeness)
+    return self.lambda_h * (1.0 - homogeneity) + self.lambda_c * (1.0 - completeness)
 
 
 class CompositeLoss(torch.nn.Module):
