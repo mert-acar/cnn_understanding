@@ -3,11 +3,8 @@ dataset: cifar10
 
 # Model
 model:
-  model_name: classificationcnn
+  model_name: cluster_resnet18
   in_ch: 3
-  out_dim: 256
-  num_layers: 1
-  attention: SAM
 
 # Training
 batch_size: 32

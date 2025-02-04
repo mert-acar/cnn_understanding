@@ -5,7 +5,7 @@ from yaml import full_load
 from torchvision import models
 from typing import Union, Dict, Any, Tuple
 
-from .resnet import ResNet18CTRL
+from .resnet import ResNet18CTRL, ClusteringResNet18
 from .cnn import ClassifyingCNN, ClusteringCNN, CustomCNN
 
 HOOK_TARGETS = {
@@ -26,10 +26,12 @@ def create_model(
   if model_name.lower() == "resnet18":
     model = models.get_model(model_name, weights=weights)
     if in_ch == 1:
-      model.conv1 = nn.Conv2d(in_ch, 64, 3, 2, 3, bias=False)
+      model.conv1 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)
     model.fc = nn.Linear(512, out_ch, bias=True)
   elif model_name.lower() == "resnet18ctrl":
     model = ResNet18CTRL(in_ch, weights)
+  elif model_name.lower() == "cluster_resnet18":
+    model = ClusteringResNet18(in_ch, weights)
   elif model_name.lower() == "customcnn":
     model = CustomCNN(in_ch=in_ch, **kwargs)
   elif model_name.lower() == "clustercnn":
