@@ -92,7 +92,9 @@ class ClusterHead(nn.Module):
       loss.backward()
       optimizer.step()
       points.data = F.normalize(points.data)
-    return points.detach()
+    points = points.detach()
+    points.requires_grad_(False)
+    return points
 
   def repulsion_loss(self, points: torch.Tensor) -> torch.Tensor:
     diff = points.unsqueeze(1) - points.unsqueeze(0)
