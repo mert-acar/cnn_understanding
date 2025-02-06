@@ -80,7 +80,7 @@ class ClassificationHead(nn.Module):
 class ClusterHead(nn.Module):
   def __init__(self, num_clusters: int = 10, latent_dim: int = 256):
     super().__init__()
-    self.cluster_centroids = self.init_points(num_clusters, latent_dim)
+    self.cluster_centroids = nn.Parameter(self.init_points(num_clusters, latent_dim), requires_grad=False)
 
   def init_points(self, num_clusters: int = 10, latent_dim: int = 256) -> torch.Tensor:
     points = F.normalize(torch.randn(num_clusters, latent_dim))

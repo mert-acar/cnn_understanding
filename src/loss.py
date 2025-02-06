@@ -146,7 +146,7 @@ class CompletenessHomogeneityLoss(torch.nn.Module):
     return mi
 
   def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-    pred_probs = F.softmax(logits, dim=1)
+    pred_probs = F.softmax(logits/0.5, dim=1)
     joint = self._compute_joint_distribution(pred_probs, targets)
     p_c = torch.sum(joint, dim=1)  # P(C)
     p_k = torch.sum(joint, dim=0)  # P(K)
