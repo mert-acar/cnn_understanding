@@ -123,43 +123,42 @@ class CompletenessHomogeneityLoss(torch.nn.Module):
   def __init__(self, num_classes: int = 10, lambda_h: float = 1.0, lambda_c: float = 1.0):
     super().__init__()
     self.num_classes = num_classes
-    self.lambda_h = lambda_h
-    self.lambda_c = lambda_c
-    self.eps = 1e-10
-    self.alpha = 5e-2
+    self.lambda_h = lambda_h # homogeneity coefficient
+    self.lambda_c = lambda_c # completeness coefficient
 
-  def entropy(self, probs: torch.Tensor) -> torch.Tensor:
-    freq = probs.sum(0)
-    freq_s = freq.sum()
-    return -((freq / freq_s) * (torch.log(freq) - torch.log(freq_s))).sum()
+  def _compute_joint_distribution(self, pred_probs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    batch_size = pred_probs.shape[0]
+    target_one_hot = F.one_hot(targets, num_classes=self.num_classes).float()
+    joint = torch.matmul(target_one_hot.T, pred_probs)
+    joint = joint / batch_size
+    return joint
 
-  def get_soft_contingency_matrix(self, pred_probs: torch.Tensor, true_probs: torch.Tensor) -> torch.Tensor:
-    return torch.einsum('ij,ik->ijk', true_probs, pred_probs).sum(0)
-
-  def get_mutual_info(self, contingency: torch.Tensor) -> torch.Tensor:
-    c_sum = contingency.sum()
-    pi = torch.ravel(contingency.sum(1))
-    pj = torch.ravel(contingency.sum(0))
-    log_contingency_nm = torch.log(contingency).flatten()
-    contingency_nm = contingency.flatten() / c_sum
-    outer = torch.outer(pi, pj).flatten()
-    log_outer = -torch.log(outer) + torch.log(pi.sum()) + torch.log(pj.sum())
-    mi = contingency_nm * (log_contingency_nm - torch.log(c_sum)) + contingency_nm * log_outer
-    mi = torch.clamp(mi.sum(), min=0.0)
+  def _compute_mutual_information(self, joint: torch.Tensor) -> torch.Tensor:
+    eps = 1e-15 
+    # Marginals
+    p_c = torch.sum(joint, dim=1, keepdim=True)  # [C, 1]
+    p_k = torch.sum(joint, dim=0, keepdim=True)  # [1, K]
+    # P(c)P(k) outer product
+    prod_marginals = torch.matmul(p_c, p_k)  # [C, K]
+    joint = joint + eps
+    prod_marginals = prod_marginals + eps
+    mi = torch.sum(joint * torch.log(joint / prod_marginals))
     return mi
 
   def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-    pred_probs = F.softmax(logits / 0.05, dim=1)
-    true_probs = F.one_hot(targets, num_classes=self.num_classes).float()
-    entropy_C = self.entropy(true_probs)
-    entropy_K = self.entropy(pred_probs)
-    contingency_m = self.get_soft_contingency_matrix(pred_probs, true_probs)
-    mutual_info = self.get_mutual_info(contingency_m)
-    homogeneity = mutual_info / (entropy_C + self.eps)
-    completeness = mutual_info / (entropy_K + self.eps)
-    print(homogeneity, completeness)
-    return self.lambda_h * (1.0 - homogeneity) + self.lambda_c * (1.0 - completeness)
+    pred_probs = F.softmax(logits, dim=1)
+    joint = self._compute_joint_distribution(pred_probs, targets)
+    p_c = torch.sum(joint, dim=1)  # P(C)
+    p_k = torch.sum(joint, dim=0)  # P(K)
+    h_c = -torch.sum(p_c * torch.log(p_c + 1e-15))  # H(C)
+    h_k = -torch.sum(p_k * torch.log(p_k + 1e-15))  # H(K)
+    mi = self._compute_mutual_information(joint)
 
+    # Homogeneity = I(C;K)/H(C)
+    homogeneity = mi / (h_c + 1e-10)
+    # Completeness = I(C;K)/H(K)
+    completeness = mi / (h_k + 1e-10)
+    return self.lambda_h * (1 - homogeneity) + self.lambda_c * (1 - completeness)
 
 class CompositeLoss(torch.nn.Module):
   def __init__(self, modules: dict[str, dict[str, Any]]):

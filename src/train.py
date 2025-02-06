@@ -70,7 +70,6 @@ def main(config_path: str):
           # Calculate loss
           loss = criterion(output, target)
           running_metrics["loss"] += loss.item()
-
           if phase == "train":
             loss.backward()
             optimizer.step()
