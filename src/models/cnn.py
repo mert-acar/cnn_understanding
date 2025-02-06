@@ -78,15 +78,30 @@ class ClassificationHead(nn.Module):
 
 
 class ClusterHead(nn.Module):
-  def __init__(self, num_clusters: int = 10, latent_dim: int = 256, temperature: float = 1.0):
+  def __init__(self, num_clusters: int = 10, latent_dim: int = 256):
     super().__init__()
-    self.temperature = temperature
-    self.cluster_centroids = nn.Parameter(torch.randn(num_clusters, latent_dim))
+    self.cluster_centroids = self.init_points(num_clusters, latent_dim)
+
+  def init_points(self, num_clusters: int = 10, latent_dim: int = 256) -> torch.Tensor:
+    points = F.normalize(torch.randn(num_clusters, latent_dim))
+    points.requires_grad_(True)
+    optimizer = torch.optim.Adam([points], lr=0.1)
+    for _ in range(500):
+      optimizer.zero_grad()
+      loss = self.repulsion_loss(points)
+      loss.backward()
+      optimizer.step()
+      points.data = F.normalize(points.data)
+    return points.detach()
+
+  def repulsion_loss(self, points: torch.Tensor) -> torch.Tensor:
+    diff = points.unsqueeze(1) - points.unsqueeze(0)
+    distances = diff.norm(dim=-1) + torch.eye(points.shape[0])
+    loss = torch.sum(1 / distances)
+    return loss
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
-    centers = F.normalize(self.cluster_centroids)
-    similarities = torch.mm(x, centers.t())  # cosine similarities
-    return similarities
+    return torch.mm(x, self.cluster_centroids.t())  # cosine similarities
 
 
 class ClassifyingCNN(nn.Module):
@@ -113,7 +128,6 @@ class ClusteringCNN(nn.Module):
   def __init__(
     self,
     num_clusters: int = 10,
-    temperature: float = 1.0,
     num_layers: int = 1,
     in_ch: int = 3,
     out_dim: int = 256,
@@ -124,7 +138,7 @@ class ClusteringCNN(nn.Module):
   ):
     super().__init__()
     self.feature_extractor = CustomCNN(num_layers, in_ch, out_dim, attention, relu, start_ch, batch_norm)
-    self.cluster_head = ClusterHead(num_clusters, out_dim, temperature)
+    self.cluster_head = ClusterHead(num_clusters, out_dim)
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     return self.cluster_head(self.feature_extractor(x))
