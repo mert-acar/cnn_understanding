@@ -24,12 +24,14 @@ def get_transforms(dataset: str, split: str = "train") -> torch.nn.Module:
 
   if dataset == "mnist":
     augmentations = [
-      transforms.RandomChoice([
-        transforms.RandomAffine((-90, 90)),
-        transforms.RandomAffine(0, translate=(0.2, 0.4)),
-        transforms.RandomAffine(0, scale=(0.8, 1.1)),
-        transforms.RandomAffine(0, shear=(-20, 20))
-      ]),
+      transforms.RandomChoice(
+        [
+          transforms.RandomAffine((-90, 90)),
+          transforms.RandomAffine(0, translate=(0.2, 0.4)),
+          transforms.RandomAffine(0, scale=(0.8, 1.1)),
+          transforms.RandomAffine(0, shear=(-20, 20))
+        ]
+      ),
     ]
   elif dataset == "cifar10":
     augmentations = [
@@ -48,7 +50,13 @@ def get_dataloader(
   isTrain = split == "train"
   transform = get_transforms(dataset, split)
   if dataset == "mnist":
-    dataset_cls = datasets.MNIST("../data/mnist/", train=isTrain, transform=transform, download=True)
+    dataset_cls = datasets.MNIST(
+      "../data/mnist/", train=isTrain, transform=transform, download=True
+    )
   if dataset == "cifar10":
-    dataset_cls = datasets.CIFAR10("../data/cifar10/", train=isTrain, transform=transform, download=True)
-  return DataLoader(dataset_cls, batch_size=batch_size, num_workers=num_workers, shuffle=isTrain)
+    dataset_cls = datasets.CIFAR10(
+      "../data/cifar10/", train=isTrain, transform=transform, download=True
+    )
+  return DataLoader(
+    dataset_cls, batch_size=batch_size, num_workers=num_workers, shuffle=isTrain, drop_last=True
+  )

@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from sklearn import metrics
 from typing import Dict, Union, List
+from scipy.optimize import linear_sum_assignment
 
 from loss import MaximalCodingRateReduction
 
@@ -36,7 +37,26 @@ class MetricCalculator:
     return np.argmax(probs, axis=1)
 
   def accuracy(self) -> float:
-    return (self._get_cluster_assignments() == self.targets_np).mean()
+    pred_labels = self._get_cluster_assignments()
+    true_labels = self.targets_np
+
+    pred_classes = list(range(10))
+    true_classes = list(range(10))
+
+    n_classes = max(len(pred_classes), len(true_classes))
+    cost_matrix = np.zeros((n_classes, n_classes))
+
+    for i in range(len(pred_classes)):
+      for j in range(len(true_classes)):
+        pred_idx = pred_labels == pred_classes[i]
+        true_idx = true_labels == true_classes[j]
+        cost_matrix[i, j] = -np.sum(pred_idx & true_idx)
+
+    row_ind, col_ind = linear_sum_assignment(cost_matrix)
+    mapping = {pred_classes[i]: true_classes[j] for i, j in zip(row_ind, col_ind)}
+    aligned_preds = np.array([mapping[label] for label in pred_labels])
+    accuracy = np.sum(aligned_preds == true_labels) / len(true_labels)
+    return accuracy
 
   def completeness_score(self) -> float:
     return float(metrics.completeness_score(self.targets_np, self._get_cluster_assignments()))
@@ -45,7 +65,9 @@ class MetricCalculator:
     return float(metrics.homogeneity_score(self.targets_np, self._get_cluster_assignments()))
 
   def normalized_mutual_information(self) -> float:
-    return float(metrics.normalized_mutual_info_score(self.targets_np, self._get_cluster_assignments()))
+    return float(
+      metrics.normalized_mutual_info_score(self.targets_np, self._get_cluster_assignments())
+    )
 
   def calinski_harabasz_index(self) -> float:
     return float(metrics.calinski_harabasz_score(self.outputs_np, self.targets_np))

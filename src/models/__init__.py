@@ -5,23 +5,27 @@ from yaml import full_load
 from torchvision import models
 from typing import Union, Dict, Any, Tuple
 
-from .resnet import ResNet18CTRL, ClusteringResNet18
+from .resnet import ResNet18CTRL, ClusteringResNet18, SelfExpressiveCNN
 from .cnn import ClassifyingCNN, ClusteringCNN, CustomCNN
 
 HOOK_TARGETS = {
   "densenet121": ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)],
   "resnet18": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)],
+  "resnet18ctrl": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)] + ["reshape_norm"],
   "customcnn": ["layers"],
   "clustercnn": ["feature_extractor", "cluster_head"],
   "classificationcnn": ["feature_extractor", "classification_head "],
-  "resnet18ctrl": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)] + ["reshape_norm"],
   "efficientnetb2": [f"features.{i}" for i in range(1, 8)],
   "efficientnetb3": [f"features.{i}" for i in range(1, 8)]
 }
 
 
 def create_model(
-  model_name: str, weights: str = "DEFAULT", in_ch: int = 1, out_ch: int = 10, **kwargs
+  model_name: str,
+  weights: str = "DEFAULT",
+  in_ch: int = 1,
+  out_ch: int = 10,
+  **kwargs
 ) -> torch.nn.Module:
   if model_name.lower() == "resnet18":
     model = models.get_model(model_name, weights=weights)
@@ -30,6 +34,8 @@ def create_model(
     model.fc = nn.Linear(512, out_ch, bias=True)
   elif model_name.lower() == "resnet18ctrl":
     model = ResNet18CTRL(in_ch, weights)
+  elif model_name.lower() == "selfexpressivecnn":
+    model = SelfExpressiveCNN(in_ch, weights, **kwargs)
   elif model_name.lower() == "cluster_resnet18":
     model = ClusteringResNet18(in_ch, weights)
   elif model_name.lower() == "customcnn":
@@ -58,13 +64,17 @@ def create_model(
   return model
 
 
-def load_model(experiment_path: str,
-               return_config: bool = False) -> Union[torch.nn.Module, Tuple[torch.nn.Module, Dict[str, Any]]]:
+def load_model(
+  experiment_path: str,
+  return_config: bool = False
+) -> Union[torch.nn.Module, Tuple[torch.nn.Module, Dict[str, Any]]]:
   with open(os.path.join(experiment_path, "ExperimentSummary.yaml"), "r") as f:
     config = full_load(f)
   model = create_model(**config["model"])
   state = torch.load(
-    os.path.join(experiment_path, f"best_state.pt"), map_location=torch.device("cpu"), weights_only=True
+    os.path.join(experiment_path, f"best_state.pt"),
+    map_location=torch.device("cpu"),
+    weights_only=True
   )
   model.load_state_dict(state)
   if return_config:

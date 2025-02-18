@@ -4,10 +4,10 @@ import numpy as np
 from math import isqrt
 from shutil import rmtree
 
-from typing import Union, List, Dict
+from typing import Union, Tuple
 
 
-def combine_scores(data):
+def combine_scores(data: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
   cov_matrix = np.cov(data.T)
   eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
   max_eigenvalue_idx = np.argmax(eigenvalues)
@@ -77,7 +77,8 @@ def svd_reduction(
   n_components: Union[None, int] = 10,
   threshold: Union[None, float] = None
 ) -> np.ndarray:
-  assert (n_components is None) != (threshold is None), "Either rank or threshold should be specified"
+  assert (n_components
+          is None) != (threshold is None), "Either rank or threshold should be specified"
   u, s, _ = np.linalg.svd(activations, full_matrices=False)
 
   if threshold is not None:
@@ -91,3 +92,11 @@ def svd_reduction(
   s_k = s[:k]
   recon = np.dot(u_k, np.diag(s_k))
   return recon
+
+
+def sinkhorn_projection(x: torch.Tensor, n_iters: int = 15) -> torch.Tensor:
+  k = torch.exp(x)
+  for _ in range(n_iters):
+    k = k / (k.sum(dim=1, keepdim=True) + 1e-10)
+    k = k / (k.sum(dim=0, keepdim=True) + 1e-10)
+  return k

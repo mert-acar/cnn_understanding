@@ -3,27 +3,38 @@ dataset: cifar10
 
 # Model
 model:
-  model_name: clustercnn
+  model_name: selfexpressivecnn
   in_ch: 3
-  num_layers: 1
-  attention: SAM
+  out_dim: 256
 
 # Training
-batch_size: 32
+batch_size: 512
 num_workers: 8
 num_epochs: 200
-learning_rate: 0.001
-weight_decay: 0.005
-metrics:
-  - accuracy
-  - homogeneity_score
-  - completeness_score
+learning_rate: 0.0001
+weight_decay:  0.00005
+orthogonal_regularization: null
+metrics: []
+  # - accuracy
+  # - homogeneity_score
+  # - completeness_score
 
 criterion_args:
-  completenesss_homogeneity_loss: 
+  # cross_entropy_loss: {weight: 1.0}
+
+  self_expressive_loss:
     weight: 1.0
-    lambda_h: 0.5
-    lambda_c: 0.5
+    args:
+      beta: 0.1
+      kappa: 64
+
+  # completenesss_homogeneity_loss: 
+  #   weight: 1.0
+  #   args:
+  #     temperature: 0.3
+  #     lambda_h: 1.0
+  #     lambda_c: 1.0
+  #     lambda_e: 0.1
 
 scheduler_args:
   factor: 0.1
@@ -31,4 +42,4 @@ scheduler_args:
 
 early_stop: 8
 
-output_path: ../logs/clustercnn_N1_CIFAR10_SAM_CL_HL/
+output_path: ../logs/temp/

@@ -2,7 +2,7 @@ import os
 import torch
 from time import time
 from tqdm import tqdm
-from shutil import copyfile
+from pprint import pprint
 from yaml import full_load, dump
 
 from loss import CompositeLoss
@@ -12,15 +12,15 @@ from metrics import MetricCalculator
 from utils import get_device, create_dir
 from visualize import plot_performance_curves
 
+from typing import Dict, Any, Optional
 
-def main(config_path: str):
-  with open(config_path, "r") as f:
-    config = full_load(f)
 
+def train_model(config: Dict[str, Any], debug_every: Optional[int] = None):
   # Create the checkpoint output path
   create_dir(config["output_path"])
   ckpt_path = os.path.join(config["output_path"], f"best_state.pt")
-  copyfile("config.yaml", os.path.join(config["output_path"], "ExperimentSummary.yaml"))
+  with open(os.path.join(config["output_path"], "ExperimentSummary.yaml"), "w") as f:
+    dump(config, f)
 
   device = get_device()
   print(f"[INFO] Running on {device}")
@@ -62,15 +62,20 @@ def main(config_path: str):
       running_metrics = {metric: 0.0 for metric in metrics.keys()}
 
       with torch.set_grad_enabled(phase == "train"):
-        for data, target in tqdm(dataloaders[phase], total=len(dataloaders[phase]), ncols=94):
+        for bidx, (data, target) in tqdm(enumerate(dataloaders[phase]), total=len(dataloaders[phase]), ncols=94):
           data, target = data.to(device), target.to(device)
-          optimizer.zero_grad()
           output = model(data)
 
           # Calculate loss
           loss = criterion(output, target)
+          if (debug_every is not None) and (bidx % debug_every == 0):
+            print()
+            pprint(criterion.losses[0][0].get_debug_info())
+            print()
           running_metrics["loss"] += loss.item()
+
           if phase == "train":
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
@@ -110,11 +115,17 @@ def main(config_path: str):
 
   plot_performance_curves(metrics, config["output_path"])
 
-  with open(os.path.join(config["output_path"], "ExperimentSummary.yaml"), "r") as f:
-    config = full_load(f)
   config.update({"best_" + k: v for k, v in best_metrics.items()})
   with open(os.path.join(config["output_path"], "ExperimentSummary.yaml"), "w") as f:
     dump(config, f)
+
+  return best_metrics
+
+
+def main(config_path: str = "./config.yaml", debug_every: Optional[int] = None):
+  with open(config_path, "r") as f:
+    config = full_load(f)
+  train_model(config, debug_every)
 
 
 if __name__ == "__main__":
