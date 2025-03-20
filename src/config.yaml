@@ -3,6 +3,7 @@ dataset: cifar10
 
 # Model
 model:
+<<<<<<< HEAD
   model_name: resnet18l4
 
 
@@ -19,6 +20,40 @@ metrics:
 
 criterion_args:
   cross_entropy_loss: {}
+=======
+  model_name: selfexpressivecnn
+  in_ch: 3
+  out_dim: 256
+
+# Training
+batch_size: 512
+num_workers: 8
+num_epochs: 200
+learning_rate: 0.0001
+weight_decay:  0.00005
+orthogonal_regularization: null
+metrics: []
+  # - accuracy
+  # - homogeneity_score
+  # - completeness_score
+
+criterion_args:
+  # cross_entropy_loss: {weight: 1.0}
+
+  self_expressive_loss:
+    weight: 1.0
+    args:
+      beta: 0.1
+      kappa: 64
+
+  # completenesss_homogeneity_loss: 
+  #   weight: 1.0
+  #   args:
+  #     temperature: 0.3
+  #     lambda_h: 1.0
+  #     lambda_c: 1.0
+  #     lambda_e: 0.1
+>>>>>>> 3ac7afde059c0a006656fbf50103bbddb5b1aa33
 
 scheduler_args:
   factor: 0.1
@@ -26,4 +61,8 @@ scheduler_args:
 
 early_stop: 8
 
+<<<<<<< HEAD
 output_path: ../logs/resnet18l4_CIFAR10/
+=======
+output_path: ../logs/temp/
+>>>>>>> 3ac7afde059c0a006656fbf50103bbddb5b1aa33

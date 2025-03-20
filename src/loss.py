@@ -1,7 +1,9 @@
 import torch
 import torch.nn.functional as F
 
-from typing import Callable, Any
+from utils import sinkhorn_projection
+
+from typing import Callable, Any, Tuple
 
 
 class LossRegistry:
@@ -42,10 +44,15 @@ class ClusterInducingLoss(torch.nn.Module):
     loss = -1 * torch.mean(q * torch.log(pred)) / k
     return loss
 
+  def get_debug_info(self):
+    return {}
+
 
 @loss_registry.register("maximal_coding_rate_reduction")
 class MaximalCodingRateReduction(torch.nn.Module):
-  def __init__(self, gam1: float = 1.0, gam2: float = 1.0, eps: float = 0.01, num_classes: int = 10):
+  def __init__(
+    self, gam1: float = 1.0, gam2: float = 1.0, eps: float = 0.01, num_classes: int = 10
+  ):
     super(MaximalCodingRateReduction, self).__init__()
     self.gam1 = gam1
     self.gam2 = gam2
@@ -73,7 +80,9 @@ class MaximalCodingRateReduction(torch.nn.Module):
 
   def label_to_membership(self, labels: torch.Tensor) -> torch.Tensor:
     num_samples = labels.size(0)
-    pi = torch.zeros((self.num_classes, num_samples, num_samples), dtype=torch.float32, device=labels.device)
+    pi = torch.zeros(
+      (self.num_classes, num_samples, num_samples), dtype=torch.float32, device=labels.device
+    )
     row_indices = torch.arange(num_samples, device=labels.device)
     pi[labels, row_indices, row_indices] = 1.0
     return pi
@@ -83,8 +92,12 @@ class MaximalCodingRateReduction(torch.nn.Module):
     pi = self.label_to_membership(targets)
     discrimn_loss_empi = self.compute_discrimn_loss_empirical(w)
     compress_loss_empi = self.compute_compress_loss_empirical(w, pi)
-    total_loss_empi = self.gam2 * -discrimn_loss_empi + compress_loss_empi
-    return total_loss_empi
+    total_loss_empi = self.gam2 * discrimn_loss_empi - compress_loss_empi
+    self.debug_info = {'R': discrimn_loss_empi, 'Rc': compress_loss_empi, 'dR': total_loss_empi}
+    return -total_loss_empi
+
+  def get_debug_info(self):
+    return self.debug_info
 
 
 @loss_registry.register("calinski_harabasz_index")
@@ -115,23 +128,56 @@ class CalinskiHarabaszLoss(torch.nn.Module):
     wcss = diff_w.pow(2).sum(dim=1).sum()
 
     ch_score = (bcss * (n - k)) / ((k - 1) * wcss + 1e-10)
+    self.debug_info = {
+      'bcss': bcss.item(),
+      'wcss': wcss.item(),
+      'chi': ch_score.item(),
+    }
     return -ch_score
+
+  def get_debug_info(self):
+    return self.debug_info
 
 
 @loss_registry.register("completenesss_homogeneity_loss")
 class CompletenessHomogeneityLoss(torch.nn.Module):
-  def __init__(self, num_classes: int = 10, lambda_h: float = 1.0, lambda_c: float = 1.0):
+  def __init__(
+    self,
+    num_classes: int = 10,
+    lambda_h: float = 1.0,
+    lambda_c: float = 1.0,
+    lambda_e: float = 0.05,
+    temperature: float = 0.3
+  ):
     super().__init__()
+    self.temperature = temperature
     self.num_classes = num_classes
+<<<<<<< HEAD
     self.lambda_h = lambda_h  # homogeneity coefficient
     self.lambda_c = lambda_c  # completeness coefficient
+=======
+    self.lambda_h = lambda_h
+    self.lambda_c = lambda_c
+    self.lambda_e = lambda_e
+>>>>>>> 3ac7afde059c0a006656fbf50103bbddb5b1aa33
 
-  def _compute_joint_distribution(self, pred_probs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+  def _compute_joint_distribution(
+    self, pred_probs: torch.Tensor, targets: torch.Tensor
+  ) -> torch.Tensor:
     batch_size = pred_probs.shape[0]
     target_one_hot = F.one_hot(targets, num_classes=self.num_classes).float()
     joint = torch.matmul(target_one_hot.T, pred_probs)
     joint = joint / batch_size
     return joint
+
+  def _compute_entropy_regularization(
+    self, pred_probs: torch.Tensor
+  ) -> Tuple[torch.Tensor, torch.Tensor]:
+    # Average prediction across batch
+    avg_pred = torch.mean(pred_probs, dim=0)
+    # Compute negative entropy of average prediction
+    neg_entropy = torch.sum(avg_pred * torch.log(avg_pred + 1e-15))
+    return neg_entropy, avg_pred
 
   def _compute_mutual_information(self, joint: torch.Tensor) -> torch.Tensor:
     eps = 1e-15
@@ -146,7 +192,11 @@ class CompletenessHomogeneityLoss(torch.nn.Module):
     return mi
 
   def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+<<<<<<< HEAD
     pred_probs = F.softmax(logits / 0.5, dim=1)
+=======
+    pred_probs = F.softmax(logits / self.temperature, dim=1)
+>>>>>>> 3ac7afde059c0a006656fbf50103bbddb5b1aa33
     joint = self._compute_joint_distribution(pred_probs, targets)
     p_c = torch.sum(joint, dim=1)  # P(C)
     p_k = torch.sum(joint, dim=0)  # P(K)
@@ -158,7 +208,72 @@ class CompletenessHomogeneityLoss(torch.nn.Module):
     homogeneity = mi / (h_c + 1e-10)
     # Completeness = I(C;K)/H(K)
     completeness = mi / (h_k + 1e-10)
-    return self.lambda_h * (1 - homogeneity) + self.lambda_c * (1 - completeness)
+    # Add entropy regularization
+    entropy_reg, avg_pred = self._compute_entropy_regularization(pred_probs)
+
+    homogeneity_loss = self.lambda_h * (1 - homogeneity)
+    completeness_loss = self.lambda_h * (1 - completeness)
+    entropy_loss = self.lambda_e * entropy_reg
+
+    self.debug_info = {
+      'homogeneity': homogeneity.item(),
+      'entropy_reg': entropy_reg.item(),
+      'avg_pred_max': torch.max(avg_pred).item(),
+      'avg_pred_min': torch.min(avg_pred).item(),
+      'pred_probs_std': torch.std(pred_probs, dim=0).mean().item()
+    }
+    return homogeneity_loss + completeness_loss + entropy_loss
+
+  def get_debug_info(self):
+    return self.debug_info
+
+
+@loss_registry.register("self_expressive_loss")
+class SelfExpressiveLoss(torch.nn.Module):
+  def __init__(
+    self,
+    beta: float = 1.0,
+    kappa: int = 3,
+    gam1: float = 1.0,
+    gam2: float = 1.0,
+    eps: float = 0.01,
+    num_classes: int = 10
+  ):
+    super().__init__()
+    self.mcr = MaximalCodingRateReduction(gam1, gam2, eps, num_classes)
+    self.num_classes = num_classes
+    self.kappa = kappa
+    self.beta = beta
+
+  def regularizer(self, c: torch.Tensor) -> torch.Tensor:
+    return torch.norm(c, p=1)
+    # a = 0.5 * (c + c.T)
+    # d = torch.diag(a.sum(dim=1))
+    # l = d - a
+    # eigenvalues = torch.linalg.eigvalsh(l)
+    # return eigenvalues[-self.kappa:].sum()
+
+  def forward(self, z_y: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    batch_size = labels.shape[0]
+    # Z: [d, N] | C: [N, N] | Y: [N, d]
+    z, y = z_y[:batch_size].T, z_y[batch_size:]
+
+    c = sinkhorn_projection(y @ y.T)
+    c = c * (1 - torch.eye(batch_size, device=z_y.device))
+
+    mcr = -self.mcr.compute_discrimn_loss_empirical(z.T)
+    recon_loss = torch.norm(z - (z @ c), p="fro")**2
+    regularization = self.regularizer(c)
+    self.debug_info = {
+      'mcr': mcr.item(),
+      'recon_loss': recon_loss.item(),
+      'regularization': regularization.item()
+    }
+    return (0.5 * recon_loss) + (self.beta * regularization) + (0.5 * mcr)
+
+  def get_debug_info(self):
+    return self.debug_info
+
 
 
 class CompositeLoss(torch.nn.Module):

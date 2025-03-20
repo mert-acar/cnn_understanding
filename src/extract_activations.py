@@ -1,14 +1,21 @@
+import os
 import torch
+import numpy as np
 from tqdm import tqdm
 import torch.nn.functional as F
-from typing import Union, Callable
 from collections import defaultdict
 from torch.utils.data import DataLoader
+from typing import Union, Callable, List
+
+from models import load_model
+from dataset import get_dataloader
 
 hooked_activations = defaultdict(list)
 
 
-def get_patches(activations: torch.Tensor, window_size: int, stride: int, padding: int = 0) -> torch.Tensor:
+def get_patches(
+  activations: torch.Tensor, window_size: int, stride: int, padding: int = 0
+) -> torch.Tensor:
   if padding != 0:
     activations = F.pad(activations, [padding] * 4)
   return F.unfold(activations, kernel_size=(window_size, window_size), stride=stride)
@@ -60,6 +67,7 @@ def hook_layers(model: torch.nn.Module, targets: list[str]):
     print(f"[INFO] Hooking {target}: {target_layer}")
 
 
+<<<<<<< HEAD
 if __name__ == "__main__":
   import os
   import numpy as np
@@ -86,7 +94,23 @@ if __name__ == "__main__":
   out_path = f"../data/{dataset.lower()}/"
   # out_path = os.path.join(experiment_path, "activations")
   os.makedirs(out_path, exist_ok=True)
+=======
+def main(experiment_path: str, hook_targets: List[str], split: str = "test"):
+  model, config = load_model(experiment_path=experiment_path, return_config=True)
+  dataloader = get_dataloader(config["dataset"], split)
+  out_path = os.path.join(experiment_path, "activations")
+  os.makedirs(out_path, exist_ok=True)
+  hook_layers(model, hook_targets)
+  forward_pass(model, dataloader)
+>>>>>>> 3ac7afde059c0a006656fbf50103bbddb5b1aa33
   for key in hooked_activations:
     hooked_activations[key] = torch.cat(hooked_activations[key], 0).cpu().numpy()
     print(key, "→", hooked_activations[key].shape)
-    np.save(os.path.join(out_path, f"{key.replace('.', '_')}_{split}_act.npy"), hooked_activations[key])
+    np.save(
+      os.path.join(out_path, f"{key.replace('.', '_')}_{split}_act.npy"), hooked_activations[key]
+    )
+
+
+if __name__ == "__main__":
+  from fire import Fire
+  Fire(main)

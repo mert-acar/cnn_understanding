@@ -5,7 +5,21 @@ from math import isqrt
 from shutil import rmtree
 from random import shuffle
 
+<<<<<<< HEAD
 from typing import Union
+=======
+from typing import Union, Tuple
+
+
+def combine_scores(data: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+  cov_matrix = np.cov(data.T)
+  eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
+  max_eigenvalue_idx = np.argmax(eigenvalues)
+  weights = eigenvectors[:, max_eigenvalue_idx]
+  weights = -weights / np.linalg.norm(weights)
+  combined_feature = data @ weights
+  return combined_feature, weights
+>>>>>>> 3ac7afde059c0a006656fbf50103bbddb5b1aa33
 
 
 def create_dir(output_path: str):
@@ -69,8 +83,13 @@ def svd_reduction(
   n_components: Union[None, int] = 10,
   threshold: Union[None, float] = None
 ) -> np.ndarray:
+<<<<<<< HEAD
   assert (n_components is None) != (threshold is None), "Either rank or threshold should be specified"
 
+=======
+  assert (n_components
+          is None) != (threshold is None), "Either rank or threshold should be specified"
+>>>>>>> 3ac7afde059c0a006656fbf50103bbddb5b1aa33
   u, s, _ = np.linalg.svd(activations, full_matrices=False)
 
   if threshold is not None:
@@ -86,8 +105,17 @@ def svd_reduction(
   return recon
 
 
+<<<<<<< HEAD
 def lr_schedule(start_lr: float, num_epochs: int, factor: float = 0.8) -> np.ndarray:
   lrs = np.zeros((num_epochs, ))
   for i in range(num_epochs):
     lrs[i] = start_lr * (factor**i)
   return lrs
+=======
+def sinkhorn_projection(x: torch.Tensor, n_iters: int = 15) -> torch.Tensor:
+  k = torch.exp(x)
+  for _ in range(n_iters):
+    k = k / (k.sum(dim=1, keepdim=True) + 1e-10)
+    k = k / (k.sum(dim=0, keepdim=True) + 1e-10)
+  return k
+>>>>>>> 3ac7afde059c0a006656fbf50103bbddb5b1aa33
