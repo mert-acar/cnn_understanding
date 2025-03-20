@@ -9,3 +9,4 @@ venv/
 .env
 src/bench.py
 report
+.hydrate

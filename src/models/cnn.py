@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-from .utils import Normalize
 from .attention import SAM, CBAM
 
 
@@ -13,7 +11,7 @@ def build_layer(
   padding: int = 1,
   stride: int = 1,
   attention: str = "none",
-  relu: bool = False,
+  relu: bool = True,
   batch_norm: bool = True,
   bias: bool = False
 ):
@@ -38,14 +36,14 @@ def build_layer(
   return nn.Sequential(*layer)
 
 
-class CustomCNN(nn.Module):
+class FeatureCNN(nn.Module):
   def __init__(
     self,
     num_layers: int = 1,
     in_ch: int = 3,
     out_dim: int = 256,
     attention: str = "none",
-    relu: bool = False,
+    relu: bool = True,
     start_ch: int = 32,
     batch_norm: bool = False
   ):
@@ -61,7 +59,7 @@ class CustomCNN(nn.Module):
     layers.append(nn.Flatten())
     if out_dim != 0:
       layers.append(nn.Linear(prev * out * out, out_dim, bias=False))
-    layers.append(Normalize())
+      layers.append(nn.ReLU())
     self.layers = nn.Sequential(*layers)
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -77,35 +75,6 @@ class ClassificationHead(nn.Module):
     return self.fc(x)
 
 
-class ClusterHead(nn.Module):
-  def __init__(self, num_clusters: int = 10, latent_dim: int = 256):
-    super().__init__()
-    self.cluster_centroids = nn.Parameter(self.init_points(num_clusters, latent_dim), requires_grad=False)
-
-  def init_points(self, num_clusters: int = 10, latent_dim: int = 256) -> torch.Tensor:
-    points = F.normalize(torch.randn(num_clusters, latent_dim))
-    points.requires_grad_(True)
-    optimizer = torch.optim.Adam([points], lr=0.1)
-    for _ in range(500):
-      optimizer.zero_grad()
-      loss = self.repulsion_loss(points)
-      loss.backward()
-      optimizer.step()
-      points.data = F.normalize(points.data)
-    points = points.detach()
-    points.requires_grad_(False)
-    return points
-
-  def repulsion_loss(self, points: torch.Tensor) -> torch.Tensor:
-    diff = points.unsqueeze(1) - points.unsqueeze(0)
-    distances = diff.norm(dim=-1) + torch.eye(points.shape[0])
-    loss = torch.sum(1 / distances)
-    return loss
-
-  def forward(self, x: torch.Tensor) -> torch.Tensor:
-    return torch.mm(x, self.cluster_centroids.t())  # cosine similarities
-
-
 class ClassifyingCNN(nn.Module):
   def __init__(
     self,
@@ -119,28 +88,8 @@ class ClassifyingCNN(nn.Module):
     batch_norm: bool = False
   ):
     super().__init__()
-    self.feature_extractor = CustomCNN(num_layers, in_ch, out_dim, attention, relu, start_ch, batch_norm)
+    self.feature_extractor = FeatureCNN(num_layers, in_ch, out_dim, attention, relu, start_ch, batch_norm)
     self.classification_head = ClassificationHead(num_classes, out_dim)
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     return self.classification_head(self.feature_extractor(x))
-
-
-class ClusteringCNN(nn.Module):
-  def __init__(
-    self,
-    num_clusters: int = 10,
-    num_layers: int = 1,
-    in_ch: int = 3,
-    out_dim: int = 256,
-    attention: str = "none",
-    relu: bool = False,
-    start_ch: int = 32,
-    batch_norm: bool = False
-  ):
-    super().__init__()
-    self.feature_extractor = CustomCNN(num_layers, in_ch, out_dim, attention, relu, start_ch, batch_norm)
-    self.cluster_head = ClusterHead(num_clusters, out_dim)
-
-  def forward(self, x: torch.Tensor) -> torch.Tensor:
-    return self.cluster_head(self.feature_extractor(x))

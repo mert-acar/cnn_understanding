@@ -10,7 +10,6 @@ from models import create_model
 from dataset import get_dataloader
 from metrics import MetricCalculator
 from utils import get_device, create_dir
-from visualize import plot_performance_curves
 
 
 def main(config_path: str):
@@ -107,8 +106,6 @@ def main(config_path: str):
   m, s = divmod(total_time, 60)
   h, m = divmod(m, 60)
   print(f"Training took {int(h):d} hours {int(m):d} minutes {s:.2f} seconds.")
-
-  plot_performance_curves(metrics, config["output_path"])
 
   with open(os.path.join(config["output_path"], "ExperimentSummary.yaml"), "r") as f:
     config = full_load(f)

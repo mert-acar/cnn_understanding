@@ -64,25 +64,28 @@ if __name__ == "__main__":
   import os
   import numpy as np
   from dataset import get_dataloader
-  from models import load_model, HOOK_TARGETS
+  from models import load_model, HOOK_TARGETS, create_model
 
-  model_name = "customnet"
+  model_name = "resnet18"
   dataset = "CIFAR10"
-  iden = "CBAM_MCR"
+  # iden = "CBAM_MCR"
   split = "test"
-  exp = "_".join([model_name, dataset]) + (f"_{iden}" if iden != "" else "")
-  experiment_path  = os.path.join("../logs", exp)
+  # exp = "_".join([model_name, dataset]) + (f"_{iden}" if iden != "" else "")
+  # experiment_path = os.path.join("../logs", exp)
 
   dataloader = get_dataloader(dataset, split)
-  model = load_model(experiment_path)
+  # model = load_model(experiment_path)
+  model = create_model(model_name, in_ch=3)
 
-  hook_targets = HOOK_TARGETS[model_name]
-  out_path = os.path.join(experiment_path, "activations")
-  os.makedirs(out_path, exist_ok=True)
+  hook_targets = ["layer1", "layer2", "layer3", "layer4"]
+  # hook_targets = HOOK_TARGETS[model_name]
 
   hook_layers(model, hook_targets)
   forward_pass(model, dataloader)
 
+  out_path = f"../data/{dataset.lower()}/"
+  # out_path = os.path.join(experiment_path, "activations")
+  os.makedirs(out_path, exist_ok=True)
   for key in hooked_activations:
     hooked_activations[key] = torch.cat(hooked_activations[key], 0).cpu().numpy()
     print(key, "→", hooked_activations[key].shape)

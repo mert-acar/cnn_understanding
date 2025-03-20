@@ -123,8 +123,8 @@ class CompletenessHomogeneityLoss(torch.nn.Module):
   def __init__(self, num_classes: int = 10, lambda_h: float = 1.0, lambda_c: float = 1.0):
     super().__init__()
     self.num_classes = num_classes
-    self.lambda_h = lambda_h # homogeneity coefficient
-    self.lambda_c = lambda_c # completeness coefficient
+    self.lambda_h = lambda_h  # homogeneity coefficient
+    self.lambda_c = lambda_c  # completeness coefficient
 
   def _compute_joint_distribution(self, pred_probs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
     batch_size = pred_probs.shape[0]
@@ -134,7 +134,7 @@ class CompletenessHomogeneityLoss(torch.nn.Module):
     return joint
 
   def _compute_mutual_information(self, joint: torch.Tensor) -> torch.Tensor:
-    eps = 1e-15 
+    eps = 1e-15
     # Marginals
     p_c = torch.sum(joint, dim=1, keepdim=True)  # [C, 1]
     p_k = torch.sum(joint, dim=0, keepdim=True)  # [1, K]
@@ -146,7 +146,7 @@ class CompletenessHomogeneityLoss(torch.nn.Module):
     return mi
 
   def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-    pred_probs = F.softmax(logits/0.5, dim=1)
+    pred_probs = F.softmax(logits / 0.5, dim=1)
     joint = self._compute_joint_distribution(pred_probs, targets)
     p_c = torch.sum(joint, dim=1)  # P(C)
     p_k = torch.sum(joint, dim=0)  # P(K)
@@ -159,6 +159,7 @@ class CompletenessHomogeneityLoss(torch.nn.Module):
     # Completeness = I(C;K)/H(K)
     completeness = mi / (h_k + 1e-10)
     return self.lambda_h * (1 - homogeneity) + self.lambda_c * (1 - completeness)
+
 
 class CompositeLoss(torch.nn.Module):
   def __init__(self, modules: dict[str, dict[str, Any]]):

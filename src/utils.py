@@ -3,18 +3,9 @@ import torch
 import numpy as np
 from math import isqrt
 from shutil import rmtree
+from random import shuffle
 
-from typing import Union, List, Dict
-
-
-def combine_scores(data):
-  cov_matrix = np.cov(data.T)
-  eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
-  max_eigenvalue_idx = np.argmax(eigenvalues)
-  weights = eigenvectors[:, max_eigenvalue_idx]
-  weights = -weights / np.linalg.norm(weights)
-  combined_feature = data @ weights
-  return combined_feature, weights
+from typing import Union
 
 
 def create_dir(output_path: str):
@@ -50,6 +41,7 @@ def select_random_samples(
       raise ValueError(f"Not enough samples for label {label}. Only {len(indices)} available.")
     selected = np.random.choice(indices, num_samples_per_label, replace=False)
     selected_indices.extend(selected)
+  shuffle(selected_indices)
   return np.array(selected_indices)
 
 
@@ -78,6 +70,7 @@ def svd_reduction(
   threshold: Union[None, float] = None
 ) -> np.ndarray:
   assert (n_components is None) != (threshold is None), "Either rank or threshold should be specified"
+
   u, s, _ = np.linalg.svd(activations, full_matrices=False)
 
   if threshold is not None:
@@ -91,3 +84,10 @@ def svd_reduction(
   s_k = s[:k]
   recon = np.dot(u_k, np.diag(s_k))
   return recon
+
+
+def lr_schedule(start_lr: float, num_epochs: int, factor: float = 0.8) -> np.ndarray:
+  lrs = np.zeros((num_epochs, ))
+  for i in range(num_epochs):
+    lrs[i] = start_lr * (factor**i)
+  return lrs

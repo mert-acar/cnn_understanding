@@ -1,8 +1,10 @@
 [tool.pyright]  
-extends = "../../../.config/pyright/pyrightconfig.json"
-venv = "uiuc"
+venvPath = "/Users/macar/personal/miniconda3/envs"
+venv = "cnn"
 include = ["src"]
-pythonVersion = 3.11
+pythonVersion = 3.12
+autoSearchPaths = true
 reportArgumentType = false
-reportOptionalMemberAccess = false
 reportOptionalOperand = false
+reportOptionalMemberAccess = false
+reportPossiblyUnboundVariable = false

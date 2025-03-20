@@ -5,54 +5,43 @@ from yaml import full_load
 from torchvision import models
 from typing import Union, Dict, Any, Tuple
 
-from .resnet import ResNet18CTRL, ClusteringResNet18
-from .cnn import ClassifyingCNN, ClusteringCNN, CustomCNN
+from .resnet import *
+from .cnn import ClassifyingCNN, FeatureCNN
 
 HOOK_TARGETS = {
-  "densenet121": ["features.conv0"] + [f"features.denseblock{i}" for i in range(1, 5)],
   "resnet18": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)],
-  "customcnn": ["layers"],
-  "clustercnn": ["feature_extractor", "cluster_head"],
-  "classificationcnn": ["feature_extractor", "classification_head "],
   "resnet18ctrl": ["conv1"] + [f"layer{i}.{j}" for i in range(1, 5) for j in range(2)] + ["reshape_norm"],
-  "efficientnetb2": [f"features.{i}" for i in range(1, 8)],
-  "efficientnetb3": [f"features.{i}" for i in range(1, 8)]
+  "featurecnn": ["layers"],
+  "classificationcnn": ["feature_extractor", "classification_head "],
 }
 
 
 def create_model(
-  model_name: str, weights: str = "DEFAULT", in_ch: int = 1, out_ch: int = 10, **kwargs
+  model_name: str,
+  weights: str = "DEFAULT",
+  in_ch: int = 1,
+  num_classes: int = 10,
+  **kwargs
 ) -> torch.nn.Module:
   if model_name.lower() == "resnet18":
     model = models.get_model(model_name, weights=weights)
     if in_ch == 1:
       model.conv1 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)
-    model.fc = nn.Linear(512, out_ch, bias=True)
+    model.fc = nn.Linear(512, num_classes, bias=True)
+  elif model_name.lower() == "resnet18l1":
+    model = ResNet18L1()
+  elif model_name.lower() == "resnet18l2":
+    model = ResNet18L2()
+  elif model_name.lower() == "resnet18l3":
+    model = ResNet18L3()
+  elif model_name.lower() == "resnet18l4":
+    model = ResNet18L4()
   elif model_name.lower() == "resnet18ctrl":
     model = ResNet18CTRL(in_ch, weights)
-  elif model_name.lower() == "cluster_resnet18":
-    model = ClusteringResNet18(in_ch, weights)
-  elif model_name.lower() == "customcnn":
-    model = CustomCNN(in_ch=in_ch, **kwargs)
-  elif model_name.lower() == "clustercnn":
-    model = ClusteringCNN(in_ch=in_ch, **kwargs)
+  elif model_name.lower() == "featurecnn":
+    model = FeatureCNN(in_ch=in_ch, **kwargs)
   elif model_name.lower() == "classificationcnn":
-    model = ClassifyingCNN(in_ch=in_ch, **kwargs)
-  elif model_name.lower() == "densenet121":
-    model = models.get_model(model_name, weights=weights)
-    if in_ch == 1:
-      model.features.conv0 = nn.Conv2d(in_ch, 64, 7, 2, 3, bias=False)
-    model.classifier = nn.Linear(1024, out_ch, bias=True)
-  elif model_name.lower() == "efficientnet_b2":
-    model = models.get_model(model_name, weights=weights)
-    if in_ch == 1:
-      model.features[0][0] = nn.Conv2d(in_ch, 32, 3, 2, 1, bias=False)
-    model.classifier[1] = nn.Linear(1408, out_ch, bias=True)
-  elif model_name.lower() == "efficientnet_b3":
-    model = models.get_model(model_name, weights=weights)
-    if in_ch == 1:
-      model.features[0][0] = nn.Conv2d(in_ch, 40, 3, 2, 1, bias=False)
-    model.classifier[1] = nn.Linear(1536, out_ch, bias=True)
+    model = ClassifyingCNN(in_ch=in_ch, num_classes=num_classes, **kwargs)
   else:
     raise NotImplementedError(model_name)
   return model
